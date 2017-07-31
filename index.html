@@ -66,10 +66,10 @@
 	precision mediump float;
 	varying vec2 vTextureCoord;
 	uniform sampler2D uSampler;
-	uniform vec4 uChanWeights;
+	varying vec4 vChanWeights;
 	
 	void main(void) {
-		vec4 preGammaOut = dot(texture2D(uSampler, vTextureCoord), uChanWeights) * vec4(1,1,1,0) + vec4(0,0,0,1);
+		vec4 preGammaOut = dot(texture2D(uSampler, vTextureCoord), vChanWeights) * vec4(1,1,1,0) + vec4(0,0,0,1);
 	
 	    float gammaOut = 0.45;	//assume 2.2 gamma
 		//float gammaOut = 1.0;
@@ -80,6 +80,26 @@
 
 <script id="gradlight-fs" type="x-shader/x-fragment">
 	//TODO
+</script>
+
+<script id="chanweights-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	attribute vec2 aTextureCoord;
+	varying vec2 vTextureCoord;
+	varying vec4 vChanWeights;
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	uniform vec3 uLightDirection;
+	
+	void main(void) {
+		//TODO rotate light direction to keep in frame of world
+		
+		vChanWeights = vec4(uLightDirection, 0.5 -0.5*dot(uLightDirection,vec3(1)));
+		//TODO pass in and multiply by midbrightness
+	
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		vTextureCoord = aTextureCoord;
+	}
 </script>
 
 <script id="simple-vs" type="x-shader/x-vertex">
@@ -118,9 +138,9 @@ function initShaders(){
 		uniforms:["uPMatrix","uMVMatrix","uSampler"]
 	});
 	*/
-	shaderProgramWeighted = loadShader( "simple-vs", "weightsum-fs",{
+	shaderProgramWeighted = loadShader( "chanweights-vs", "weightsum-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSampler","uChanWeights"]
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirection"]
 	});
 }
 
@@ -213,25 +233,8 @@ function drawScene(frameTime){
 	mat4.perspective(60, gl.viewportWidth/ gl.viewportHeight, camParams.near, camParams.far, pMatrix); 
 	
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
 	
-	//calc chanWeights. (1,0,0,0) is for light in x direction, (-1,0,0,1) is for light in -ve x direction...
-	
-	//-1			* ( 0,0,0,-0.5)
-	//guiParams.xLightDirection * ( 1,0,0,-0.5)
-	//guiParams.yLightDirection * ( 0,1,0,-0.5)
-	//guiParams.zLightDirection * ( 0,0,1,-0.5)
-
-	var lightVec = [-1,guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection];
-	//TODO use a matrix lib
-	chanWeights = [ lightVec[1], lightVec[2], lightVec[3], -0.5*(lightVec[0]+lightVec[1]+lightVec[2]+lightVec[3]) ];
-	
-	//multiply by midbrightness
-	for (var cc=0;cc<4;cc++){
-		chanWeights[cc]*=2*guiParams.midBrightness;
-	}
-	
-	gl.uniform4fv(shaderProgramWeighted.uniforms.uChanWeights, chanWeights);
+	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirection, [guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection]);
 
 	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
