@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport' />
+<html>
+
+<head>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+
+<title>test scene</title>
+
+<style>
+	body {
+		margin: 0px;
+		overflow: hidden;
+	}
+
+	#info {
+		position: absolute;
+		top: 0px; width: 100%;
+		padding: 20px;
+		color: white;
+		text-align: center;
+	}
+	
+	#info a:link {
+				color: white;
+	}
+		
+	#info a:visited {
+		color: white;
+	}
+</style>
+
+<script type="text/javascript" src="lib/dat.gui.min.js"></script>
+<script type="text/javascript" src="lib/stats.min.js"></script>
+<script type="text/javascript" src="lib/gl-matrix-min.js"></script>
+
+
+<script id="simpletex-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSampler;
+	
+	void main(void) {
+		gl_FragColor = texture2D(uSampler, vTextureCoord);
+	}
+</script>
+
+<script id="showchan-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSampler;
+	
+	void main(void) {
+		vec4 toSwizzle = texture2D(uSampler, vTextureCoord);
+		
+		//gl_FragColor = vec4(toSwizzle.r, toSwizzle.r, toSwizzle.r, 1 );
+		//gl_FragColor = vec4(toSwizzle.g, toSwizzle.g, toSwizzle.g, 1 );
+		//gl_FragColor = vec4(toSwizzle.b, toSwizzle.b, toSwizzle.b, 1 );
+		gl_FragColor = vec4(toSwizzle.a, toSwizzle.a, toSwizzle.a, 1 );
+	}
+</script>
+
+<!-- simple test to weighted sum of rgba channels, so can check each channel looks as expect-->
+<script id="weightsum-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSampler;
+	uniform vec4 uChanWeights;
+	
+	void main(void) {
+		vec4 preGammaOut = dot(texture2D(uSampler, vTextureCoord), uChanWeights) * vec4(1,1,1,0) + vec4(0,0,0,1);
+	
+	    float gammaOut = 0.45;	//assume 2.2 gamma
+		//float gammaOut = 1.0;
+		gl_FragColor = vec4(pow(preGammaOut.rgb, vec3(gammaOut)), 1 );
+	
+	}
+</script>
+
+<script id="gradlight-fs" type="x-shader/x-fragment">
+	//TODO
+</script>
+
+<script id="simple-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	attribute vec2 aTextureCoord;
+	varying vec2 vTextureCoord;
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	
+	void main(void) {
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		vTextureCoord = aTextureCoord;
+	}
+</script>
+
+
+<script type="text/javascript" src="utils/webgl_utils.js"></script>
+
+<script type="text/javascript" src="res/bunny-trimmed.obj.json"></script>
+<script type="text/javascript" src="res/cross.obj.json"></script>
+
+
+<script type="text/javascript">
+
+var shaderProgramSimple;
+var shaderProgramWeighted;
+
+function initShaders(){	
+	shaderProgramSimple = loadShader( "simple-vs", "simpletex-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSampler"]
+	});
+	/*
+	shaderProgramSimple = loadShader( "simple-vs", "showchan-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSampler"]
+	});
+	*/
+	shaderProgramWeighted = loadShader( "simple-vs", "weightsum-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uChanWeights"]
+	});
+}
+
+var chanWeights=[1,0,0,0];	//can edit via console.
+
+var mvMatrix = mat4.create();
+var pMatrix = mat4.create();
+
+var bunnyBuffers={};
+var crossBuffers={};
+
+function initBuffers(){
+	
+	var bunnyObject = loadBlenderExport(bunnyData);
+	delete bunnyObject.normals;	//because current shader doesn't use
+	loadBufferData(bunnyBuffers, bunnyObject);
+
+	var crossObject = loadBlenderExport(crossData[0]);
+	delete crossObject.normals;	//because current shader doesn't use
+	loadBufferData(crossBuffers, crossObject);
+
+	
+	function bufferArrayData(buffer, arr, size){
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
+		buffer.itemSize = size;
+		buffer.numItems = arr.length / size;
+	}
+	
+	function loadBufferData(bufferObj, sourceData){
+		bufferObj.vertexPositionBuffer = gl.createBuffer();
+		bufferArrayData(bufferObj.vertexPositionBuffer, sourceData.vertices, 3);
+			
+		if (sourceData.uvcoords){
+			bufferObj.vertexTextureCoordBuffer= gl.createBuffer();
+			bufferArrayData(bufferObj.vertexTextureCoordBuffer, sourceData.uvcoords, 2);
+		}
+		
+		if (sourceData.normals){
+			bufferObj.vertexNormalBuffer= gl.createBuffer();
+			bufferArrayData(bufferObj.vertexNormalBuffer, sourceData.normals, 3);
+		}
+		
+		bufferObj.vertexIndexBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sourceData.indices), gl.STATIC_DRAW);
+		bufferObj.vertexIndexBuffer.itemSize = 3;
+		bufferObj.vertexIndexBuffer.numItems = sourceData.indices.length;
+	}
+	
+	function loadBlenderExport(meshToLoad){
+		return {
+			vertices: meshToLoad.vertices,
+			normals: meshToLoad.normals,
+			uvcoords: meshToLoad.texturecoords?meshToLoad.texturecoords[0]:false,
+			indices: [].concat.apply([],meshToLoad.faces)	//trick from https://www.youtube.com/watch?v=sM9n73-HiNA t~ 28:30
+		}	
+	};
+	
+}
+
+
+//possibly calling glviewport slows things down.
+var setGlViewportIfNecessary = (function(){
+	var savedx=-1;
+	var savedy=-1;
+	var saveda=-1;
+	var savedb=-1;
+	return function(a,b,x,y){
+		if (x!=savedx || y!=savedy || a!=saveda || b!=savedb){
+			gl.viewport(a, b, x, y);
+			saveda=a;
+			savedb=b;
+			savedx=x;
+			savedy=y;
+		}
+	}
+})();
+
+var camParams = {near:1, far:1000};
+
+function drawScene(frameTime){
+	resizecanvas();
+
+	requestAnimationFrame(drawScene);
+	stats.end();
+	stats.begin();
+	
+	//draw the scene straight to the screen
+	mat4.perspective(60, gl.viewportWidth/ gl.viewportHeight, camParams.near, camParams.far, pMatrix); 
+	
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+	
+	//calc chanWeights. (1,0,0,0) is for light in x direction, (-1,0,0,1) is for light in -ve x direction...
+	
+	//-1			* ( 0,0,0,-0.5)
+	//guiParams.xLightDirection * ( 1,0,0,-0.5)
+	//guiParams.yLightDirection * ( 0,1,0,-0.5)
+	//guiParams.zLightDirection * ( 0,0,1,-0.5)
+
+	var lightVec = [-1,guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection];
+	//TODO use a matrix lib
+	chanWeights = [ lightVec[1], lightVec[2], lightVec[3], -0.5*(lightVec[0]+lightVec[1]+lightVec[2]+lightVec[3]) ];
+	
+	//multiply by midbrightness
+	for (var cc=0;cc<4;cc++){
+		chanWeights[cc]*=2*guiParams.midBrightness;
+	}
+	
+	gl.uniform4fv(shaderProgramWeighted.uniforms.uChanWeights, chanWeights);
+
+	
+	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
+	drawWorldScene(frameTime, 0);
+}
+
+var playerCamera=mat4.create();
+mat4.identity(playerCamera);	//default??
+mat4.translate(playerCamera,[0,-1.5,-5]);
+
+function drawWorldScene(frameTime) {		
+	//console.log("drawing world scene");
+	
+	var objToDraw;
+	var texToUse;
+	switch (guiParams.objectToDraw){
+		case 'bunny':
+		objToDraw = bunnyBuffers;	//todo connect tex and obj in a single object.
+		texToUse = bunnyTexture;
+		break;
+		case 'cross':
+		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
+		texToUse = comboTexture;
+		break;
+	}
+	
+	mat4.set(playerCamera, mvMatrix)
+	mat4.rotateY(mvMatrix,frameTime/1000);
+	
+	//var activeProg=shaderProgramSimple;
+	var activeProg=shaderProgramWeighted;
+	gl.useProgram(activeProg);
+	
+	gl.bindTexture(gl.TEXTURE_2D, texToUse.texture);
+	
+	gl.enableVertexAttribArray(1);
+				
+	drawObjectFromBuffers(objToDraw, activeProg);
+	
+}
+
+
+
+
+
+
+function drawObjectFromBuffers(bufferObj, shaderProg){
+	prepBuffersForDrawing(bufferObj, shaderProg);
+	drawObjectFromPreppedBuffers(bufferObj, shaderProg);
+}
+function prepBuffersForDrawing(bufferObj, shaderProg){
+	gl.enable(gl.CULL_FACE);
+	gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexPositionBuffer);
+    gl.vertexAttribPointer(shaderProg.attributes.aVertexPosition, bufferObj.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	
+	if (bufferObj.vertexNormalBuffer){
+		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexNormalBuffer);
+		gl.vertexAttribPointer(shaderProg.attributes.aVertexNormal, bufferObj.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	}
+	
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
+	
+	if (bufferObj.vertexTextureCoordBuffer){
+		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProg.attributes.aTextureCoord, bufferObj.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	
+		gl.activeTexture(gl.TEXTURE0);
+		gl.uniform1i(shaderProg.uniforms.uSampler, 0);
+	}
+	gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);
+}
+function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
+	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+}
+
+function initTexture(textureContainer, src) {
+	var texture = gl.createTexture();
+	texture.image = new Image();
+	texture.image.onload = function() {
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+		gl.generateMipmap(gl.TEXTURE_2D);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+	}
+	texture.image.src = src;
+	textureContainer.texture = texture;
+}
+
+var guiParams={
+	objectToDraw:'cross',
+	midBrightness:0.5,
+	xLightDirection:0,
+	yLightDirection:0,
+	zLightDirection:0
+	};
+
+var comboTexture={};
+var bunnyTexture={};
+function init(){
+	
+	stats = new Stats();
+	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+	document.body.appendChild( stats.dom );
+	
+	gui = new dat.GUI();	//TODO
+
+	var objectOptions = ['cross', 'bunny'];
+	gui.add(guiParams, 'objectToDraw', objectOptions);
+
+	gui.add(guiParams, 'midBrightness', 0, 1, 0.1);
+	gui.add(guiParams, 'xLightDirection', -1, 1, 0.1);	//note for unsaturated results, keep magnitude of light direction <=1
+	gui.add(guiParams, 'yLightDirection', -1, 1, 0.1);
+	gui.add(guiParams, 'zLightDirection', -1, 1, 0.1);
+
+	
+	canvas = document.getElementById("mycanvas");
+
+	initGL();
+	
+	
+	initShaders();
+	
+	initTexture(comboTexture, "res/ThingTexComboGammaed.png");	//good!
+	initTexture(bunnyTexture, "res/BunnyTexComboGammaed.png");	//good!	
+	
+	initBuffers();
+	gl.clearColor(0.5, 1.0, 1.0, 1.0);
+    gl.enable(gl.DEPTH_TEST);
+	gl.enable(gl.CULL_FACE);
+	gl.cullFace(gl.BACK);
+	
+	requestAnimationFrame(drawScene);
+}
+
+</script>
+
+
+
+</head>
+
+
+
+<body onload="init()">
+<div id="info">Gradient skylighting shader test<a href="https://github.com/filbs111/TODO" target="_blank">https://github.com/filbs111/TODO</a></div>
+		
+
+<canvas id="mycanvas" width="0" height="0">CANVAS TO GO HERE</canvas>
+
+
+</body>
+
+
+</html>
