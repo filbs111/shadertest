@@ -88,13 +88,14 @@
 	varying vec2 vTextureCoord;
 	varying vec4 vChanWeights;
 	uniform mat4 uMVMatrix;
+	uniform mat3 uInvMatrix;
 	uniform mat4 uPMatrix;
 	uniform vec3 uLightDirection;
 	
 	void main(void) {
-		//TODO rotate light direction to keep in frame of world
-		
-		vChanWeights = vec4(uLightDirection, 0.5 -0.5*dot(uLightDirection,vec3(1)));
+		vec3 modifiedLightDirection = uInvMatrix * uLightDirection;
+				
+		vChanWeights = vec4(modifiedLightDirection, 0.5 -0.5*dot(modifiedLightDirection,vec3(1)));
 		//TODO pass in and multiply by midbrightness
 	
 		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
@@ -118,8 +119,8 @@
 
 <script type="text/javascript" src="utils/webgl_utils.js"></script>
 
-<script type="text/javascript" src="res/bunny-trimmed.obj.json"></script>
-<script type="text/javascript" src="res/cross.obj.json"></script>
+<script type="text/javascript" src="res/bunnyYZ.obj.json"></script>
+<script type="text/javascript" src="res/crossYZ.obj.json"></script>
 
 
 <script type="text/javascript">
@@ -140,7 +141,7 @@ function initShaders(){
 	*/
 	shaderProgramWeighted = loadShader( "chanweights-vs", "weightsum-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirection"]
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirection","uInvMatrix"]
 	});
 }
 
@@ -148,17 +149,21 @@ var chanWeights=[1,0,0,0];	//can edit via console.
 
 var mvMatrix = mat4.create();
 var pMatrix = mat4.create();
+var invMatrix = mat3.create();
+
 
 var bunnyBuffers={};
 var crossBuffers={};
 
 function initBuffers(){
 	
+	//console.log(bunnyData);
+	
 	var bunnyObject = loadBlenderExport(bunnyData);
 	delete bunnyObject.normals;	//because current shader doesn't use
 	loadBufferData(bunnyBuffers, bunnyObject);
 
-	var crossObject = loadBlenderExport(crossData[0]);
+	var crossObject = loadBlenderExport(crossData);
 	delete crossObject.normals;	//because current shader doesn't use
 	loadBufferData(crossBuffers, crossObject);
 
@@ -235,7 +240,6 @@ function drawScene(frameTime){
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirection, [guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection]);
-
 	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
 	drawWorldScene(frameTime, 0);
@@ -243,7 +247,7 @@ function drawScene(frameTime){
 
 var playerCamera=mat4.create();
 mat4.identity(playerCamera);	//default??
-mat4.translate(playerCamera,[0,-1.5,-5]);
+mat4.translate(playerCamera,[0,0,-5]);
 
 function drawWorldScene(frameTime) {		
 	//console.log("drawing world scene");
@@ -262,7 +266,10 @@ function drawWorldScene(frameTime) {
 	}
 	
 	mat4.set(playerCamera, mvMatrix)
-	mat4.rotateY(mvMatrix,frameTime/1000);
+	
+	mat4.rotateX(mvMatrix,-Math.PI/2);
+	mat4.rotateZ(mvMatrix,frameTime/1000);
+	mat4.rotateY(mvMatrix,frameTime/10000);
 	
 	//var activeProg=shaderProgramSimple;
 	var activeProg=shaderProgramWeighted;
@@ -308,6 +315,14 @@ function prepBuffersForDrawing(bufferObj, shaderProg){
 }
 function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
 	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+
+	//todo use matrix library to extract mat3 from mat4 and transpose
+	invMatrix = [ mvMatrix[0], mvMatrix[4], mvMatrix[8], 
+					mvMatrix[1], mvMatrix[5], mvMatrix[9], 
+					mvMatrix[2], mvMatrix[6], mvMatrix[10]];
+	
+	gl.uniformMatrix3fv(shaderProg.uniforms.uInvMatrix, false, invMatrix);
+
 	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
