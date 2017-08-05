@@ -263,6 +263,10 @@ function drawWorldScene(frameTime) {
 		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
 		texToUse = comboTexture;
 		break;
+		case 'cross 0.5':
+		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
+		texToUse = comboTextureP5;
+		break;
 	}
 	
 	mat4.set(playerCamera, mvMatrix)
@@ -332,6 +336,10 @@ function initTexture(textureContainer, src) {
 	texture.image.onload = function() {
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		
+		gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+		//gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);	//default
+		
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -351,6 +359,7 @@ var guiParams={
 	};
 
 var comboTexture={};
+var comboTextureP5={};
 var bunnyTexture={};
 function init(){
 	
@@ -360,7 +369,7 @@ function init(){
 	
 	gui = new dat.GUI();	//TODO
 
-	var objectOptions = ['cross', 'bunny'];
+	var objectOptions = ['cross', 'cross 0.5', 'bunny'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
 
 	gui.add(guiParams, 'midBrightness', 0, 1, 0.1);
@@ -376,8 +385,10 @@ function init(){
 	
 	initShaders();
 	
-	initTexture(comboTexture, "res/ThingTexComboGammaed.png");	//good!
-	initTexture(bunnyTexture, "res/BunnyTexComboGammaed.png");	//good!	
+	initTexture(comboTexture, "res/ThingTexCombo.png");	// 0.8 albedo
+	initTexture(comboTextureP5, "res/ThingTexCombo50pc512.png");	// 0.5 albedo
+
+	initTexture(bunnyTexture, "res/BunnyTexCombo.png");	//0.8 albedo
 	
 	initBuffers();
 	gl.clearColor(0.5, 1.0, 1.0, 1.0);
