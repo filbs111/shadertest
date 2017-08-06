@@ -123,7 +123,7 @@
 
 <script type="text/javascript" src="res/bunnyYZ.obj.json"></script>
 <script type="text/javascript" src="res/crossYZ.obj.json"></script>
-
+<script type="text/javascript" src="res/sship-pointyc-tidy1-uv3-YZ-p04scale.obj.json"></script>
 
 <script type="text/javascript">
 
@@ -156,6 +156,7 @@ var invMatrix = mat3.create();
 
 var bunnyBuffers={};
 var crossBuffers={};
+var sshipBuffers={};
 
 function initBuffers(){
 	
@@ -169,6 +170,9 @@ function initBuffers(){
 	delete crossObject.normals;	//because current shader doesn't use
 	loadBufferData(crossBuffers, crossObject);
 
+	var sshipObject = loadBlenderExport(sshipData);
+	delete sshipObject.normals;	//because current shader doesn't use
+	loadBufferData(sshipBuffers, sshipObject);
 	
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -276,6 +280,10 @@ function drawWorldScene(frameTime) {
 		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
 		texToUse = comboTextureP5;
 		break;
+		case 'spaceship':
+		objToDraw = sshipBuffers;	//todo connect tex and obj in a single object.
+		texToUse = sshipTextureP4;
+		break;
 	}
 	
 	mat4.set(playerCamera, mvMatrix)
@@ -372,6 +380,8 @@ var comboTexture={};
 var comboTextureP5={};
 var bunnyTexture={};
 var bunnyTextureP5={};
+var sshipTextureP4={};
+
 function init(){
 	
 	stats = new Stats();
@@ -380,7 +390,7 @@ function init(){
 	
 	gui = new dat.GUI();	//TODO
 
-	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5'];
+	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
 
 	gui.add(guiParams, 'midBrightness', 0, 1, 0.1);
@@ -409,6 +419,7 @@ function init(){
 	initTexture(bunnyTexture, "res/BunnyTexComboFR80pc.png");	//0.8 albedo
 	initTexture(bunnyTextureP5, "res/BunnyTexComboFR50pc.png");	//0.8 albedo
 	
+	initTexture(sshipTextureP4, "res/	SshipTexComboFR40pc.png");	// 0.4 albedo (normalised by *2.5)
 	
 	initBuffers();
 	gl.clearColor(0.5, 1.0, 1.0, 1.0);
