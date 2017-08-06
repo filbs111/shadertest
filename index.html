@@ -91,11 +91,13 @@
 	uniform mat3 uInvMatrix;
 	uniform mat4 uPMatrix;
 	uniform vec3 uLightDirection;
+	uniform float uMaxAlbedo;	//textures baked with light scaled by 1/MaxAlbedo, to use full brightness range.
 	
 	void main(void) {
 		vec3 modifiedLightDirection = uInvMatrix * uLightDirection;
 				
 		vChanWeights = vec4(modifiedLightDirection, 0.5 -0.5*dot(modifiedLightDirection,vec3(1)));
+		vChanWeights*=uMaxAlbedo;
 		//TODO pass in and multiply by midbrightness
 	
 		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
@@ -141,7 +143,7 @@ function initShaders(){
 	*/
 	shaderProgramWeighted = loadShader( "chanweights-vs", "weightsum-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirection","uInvMatrix"]
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirection","uInvMatrix","uMaxAlbedo"]
 	});
 }
 
@@ -241,6 +243,9 @@ function drawScene(frameTime){
 	
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirection, [guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection]);
 	
+	gl.uniform1f(shaderProgramWeighted.uniforms.uMaxAlbedo, guiParams.maxAlbedo);
+
+	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
 	drawWorldScene(frameTime, 0);
 }
@@ -255,11 +260,15 @@ function drawWorldScene(frameTime) {
 	var objToDraw;
 	var texToUse;
 	switch (guiParams.objectToDraw){
-		case 'bunny':
+		case 'bunny 0.8':
 		objToDraw = bunnyBuffers;	//todo connect tex and obj in a single object.
 		texToUse = bunnyTexture;
 		break;
-		case 'cross':
+		case 'bunny 0.5':
+		objToDraw = bunnyBuffers;	//todo connect tex and obj in a single object.
+		texToUse = bunnyTextureP5;
+		break;
+		case 'cross 0.8':
 		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
 		texToUse = comboTexture;
 		break;
@@ -351,16 +360,18 @@ function initTexture(textureContainer, src) {
 }
 
 var guiParams={
-	objectToDraw:'cross',
+	objectToDraw:'cross 0.8',
 	midBrightness:0.5,
 	xLightDirection:0,
 	yLightDirection:0,
-	zLightDirection:0
+	zLightDirection:0,
+	maxAlbedo:1
 	};
 
 var comboTexture={};
 var comboTextureP5={};
 var bunnyTexture={};
+var bunnyTextureP5={};
 function init(){
 	
 	stats = new Stats();
@@ -369,7 +380,7 @@ function init(){
 	
 	gui = new dat.GUI();	//TODO
 
-	var objectOptions = ['cross', 'cross 0.5', 'bunny'];
+	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
 
 	gui.add(guiParams, 'midBrightness', 0, 1, 0.1);
@@ -377,6 +388,7 @@ function init(){
 	gui.add(guiParams, 'yLightDirection', -1, 1, 0.1);
 	gui.add(guiParams, 'zLightDirection', -1, 1, 0.1);
 
+	gui.add(guiParams, 'maxAlbedo',0,1,0.1);
 	
 	canvas = document.getElementById("mycanvas");
 
@@ -385,10 +397,18 @@ function init(){
 	
 	initShaders();
 	
-	initTexture(comboTexture, "res/ThingTexCombo.png");	// 0.8 albedo
-	initTexture(comboTextureP5, "res/ThingTexCombo50pc512.png");	// 0.5 albedo
-
-	initTexture(bunnyTexture, "res/BunnyTexCombo.png");	//0.8 albedo
+	//re texture normalisation.
+	//for baking with say, maximum object albedo 0.8, lights in blender are set to 1.25, so brightest part of bake is 1, to utilise full range of brighness in the baked texture
+	//the maxAlbedo value effectively multiplies the linear texture values by this value when using in the shader
+	//should set the shader uniform maxAlbedo appropriately, if want to render objects of different albedo with the same brighness scale. 
+	//if just want object to be lit such that brightest part is white, can use maxAlbedo=1 - this does not simulate the object having a different albedo.
+	
+	initTexture(comboTexture, "res/	ThingTexComboFR80pc.png");	// 0.8 albedo (normalised by *1.25)
+	initTexture(comboTextureP5, "res/ThingTexComboFR50pc.png");	// 0.5 albedo (normalised by *2)
+	
+	initTexture(bunnyTexture, "res/BunnyTexComboFR80pc.png");	//0.8 albedo
+	initTexture(bunnyTextureP5, "res/BunnyTexComboFR50pc.png");	//0.8 albedo
+	
 	
 	initBuffers();
 	gl.clearColor(0.5, 1.0, 1.0, 1.0);
