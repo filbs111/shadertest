@@ -78,6 +78,7 @@
 	}
 </script>
 
+
 <script id="gradlight-fs" type="x-shader/x-fragment">
 	//TODO
 </script>
@@ -119,11 +120,13 @@
 </script>
 
 
+
 <script type="text/javascript" src="utils/webgl_utils.js"></script>
 
 <script type="text/javascript" src="res/bunnyYZ.obj.json"></script>
 <script type="text/javascript" src="res/crossYZ.obj.json"></script>
 <script type="text/javascript" src="res/sship-pointyc-tidy1-uv5-YZ-p04scale.obj.json"></script>
+<script type="text/javascript" src="res/sky/skybox_minus10scale.obj.json"></script>
 
 <script type="text/javascript">
 
@@ -157,6 +160,7 @@ var invMatrix = mat3.create();
 var bunnyBuffers={};
 var crossBuffers={};
 var sshipBuffers={};
+var skyboxBuffers={};
 
 function initBuffers(){
 	
@@ -173,6 +177,10 @@ function initBuffers(){
 	var sshipObject = loadBlenderExport(sshipData);
 	delete sshipObject.normals;	//because current shader doesn't use
 	loadBufferData(sshipBuffers, sshipObject);
+	
+	var skyboxObject = loadBlenderExport(skyboxData);
+	delete skyboxObject.normals;	//because current shader doesn't use
+	loadBufferData(skyboxBuffers, skyboxObject);
 	
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -247,7 +255,6 @@ function drawScene(frameTime){
 	
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirection, [guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection]);
 	
-	gl.uniform1f(shaderProgramWeighted.uniforms.uMaxAlbedo, guiParams.maxAlbedo);
 
 	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
@@ -280,7 +287,7 @@ function drawWorldScene(frameTime) {
 		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
 		texToUse = comboTextureP5;
 		break;
-		case 'spaceship':
+		case 'spaceship 0.4':
 		objToDraw = sshipBuffers;	//todo connect tex and obj in a single object.
 		texToUse = sshipTextureP4;
 		break;
@@ -295,17 +302,24 @@ function drawWorldScene(frameTime) {
 	mat4.rotateY(mvMatrix,frameTime/10000);
 	*/
 	
-	mat4.rotateZ(mvMatrix,turnAng);
-	mat4.rotateX(mvMatrix,pitchAng);
+	
 	
 	//var activeProg=shaderProgramSimple;
 	var activeProg=shaderProgramWeighted;
 	gl.useProgram(activeProg);
 	
-	gl.bindTexture(gl.TEXTURE_2D, texToUse.texture);
-	
 	gl.enableVertexAttribArray(1);
-				
+	
+	//draw sky.
+	gl.bindTexture(gl.TEXTURE_2D, skyboxTexture.texture);
+	gl.uniform1f(shaderProgramWeighted.uniforms.uMaxAlbedo, 1);
+	drawObjectFromBuffers(skyboxBuffers, activeProg);
+	
+	mat4.rotateZ(mvMatrix,turnAng);
+	mat4.rotateX(mvMatrix,pitchAng);
+
+	gl.bindTexture(gl.TEXTURE_2D, texToUse.texture);
+	gl.uniform1f(shaderProgramWeighted.uniforms.uMaxAlbedo, guiParams.maxAlbedo);				
 	drawObjectFromBuffers(objToDraw, activeProg);
 	
 }
@@ -374,12 +388,12 @@ function initTexture(textureContainer, src) {
 }
 
 var guiParams={
-	objectToDraw:'cross 0.8',
+	objectToDraw:'spaceship 0.4',
 	midBrightness:0.5,
-	xLightDirection:0,
+	xLightDirection:1,
 	yLightDirection:0,
 	zLightDirection:0,
-	maxAlbedo:1
+	maxAlbedo:0.4
 	};
 
 var comboTexture={};
@@ -387,8 +401,9 @@ var comboTextureP5={};
 var bunnyTexture={};
 var bunnyTextureP5={};
 var sshipTextureP4={};
+var skyboxTexture={};
 
-var turnAng=0;
+var turnAng=Math.PI/2;
 var pitchAng=0;
 
 function init(){
@@ -399,7 +414,7 @@ function init(){
 	
 	gui = new dat.GUI();	//TODO
 
-	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship'];
+	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship 0.4'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
 
 	gui.add(guiParams, 'midBrightness', 0, 1, 0.1);
@@ -457,6 +472,10 @@ function init(){
 	
 	initTexture(sshipTextureP4, "res/SshipTexCombouv5FR40pc.png");	// 0.4 albedo (normalised by *2.5)
 	
+	initTexture(skyboxTexture, "res/sky/Gradient.png");	//skybox (emmissive)
+	
+	
+	
 	initBuffers();
 	gl.clearColor(0.5, 1.0, 1.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
@@ -475,7 +494,7 @@ function init(){
 
 
 <body onload="init()">
-<div id="info">Gradient skylighting shader test<a href="https://github.com/filbs111/TODO" target="_blank">https://github.com/filbs111/TODO</a></div>
+<div id="info">Gradient skylighting shader test <a href="https://github.com/filbs111/shadertest" target="_blank">https://github.com/filbs111/shadertest</a></div>
 		
 
 <canvas id="mycanvas" width="0" height="0">CANVAS TO GO HERE</canvas>
