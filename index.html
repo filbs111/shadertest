@@ -288,9 +288,15 @@ function drawWorldScene(frameTime) {
 	
 	mat4.set(playerCamera, mvMatrix)
 	
+	
 	mat4.rotateX(mvMatrix,-Math.PI/2);
+	/*
 	mat4.rotateZ(mvMatrix,frameTime/1000);
 	mat4.rotateY(mvMatrix,frameTime/10000);
+	*/
+	
+	mat4.rotateZ(mvMatrix,turnAng);
+	mat4.rotateX(mvMatrix,pitchAng);
 	
 	//var activeProg=shaderProgramSimple;
 	var activeProg=shaderProgramWeighted;
@@ -382,6 +388,9 @@ var bunnyTexture={};
 var bunnyTextureP5={};
 var sshipTextureP4={};
 
+var turnAng=0;
+var pitchAng=0;
+
 function init(){
 	
 	stats = new Stats();
@@ -402,6 +411,33 @@ function init(){
 	
 	canvas = document.getElementById("mycanvas");
 
+	
+	window.addEventListener("keydown",function(evt){
+		console.log("key pressed : " + evt.keyCode);
+		var willPreventDefault=true;
+		var angleStep=Math.PI/32;
+		switch (evt.keyCode){
+			case 39:
+				turnAng-=angleStep;
+				break;
+			case 37:
+				turnAng+=angleStep;
+				break;
+			case 38:
+				pitchAng+=angleStep;
+				break;
+			case 40:
+				pitchAng-=angleStep;
+				break;
+			default:
+				willPreventDefault=false;
+				break;
+		}
+		if (willPreventDefault){evt.preventDefault()};
+	});
+	
+	
+	
 	initGL();
 	
 	
