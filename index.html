@@ -102,6 +102,9 @@
 	uniform vec3 uLightDirectionR;
 	uniform vec3 uLightDirectionG;
 	uniform vec3 uLightDirectionB;
+	uniform float uAvgR;
+	uniform float uAvgG;
+	uniform float uAvgB;
 	uniform float uMaxAlbedo;	//textures baked with light scaled by 1/MaxAlbedo, to use full brightness range.
 	
 	void main(void) {
@@ -111,9 +114,9 @@
 		vec3 modifiedLightDirectionG = uInvMatrix * uLightDirectionG;
 		vec3 modifiedLightDirectionB = uInvMatrix * uLightDirectionB;
 				
-		vChanWeightsR = vec4(modifiedLightDirectionR, 0.5 -0.5*dot(modifiedLightDirectionR,vec3(1)));
-		vChanWeightsG = vec4(modifiedLightDirectionG, 0.5 -0.5*dot(modifiedLightDirectionG,vec3(1)));
-		vChanWeightsB = vec4(modifiedLightDirectionB, 0.5 -0.5*dot(modifiedLightDirectionB,vec3(1)));
+		vChanWeightsR = vec4(modifiedLightDirectionR, uAvgR-dot(modifiedLightDirectionR,vec3(0.5)));
+		vChanWeightsG = vec4(modifiedLightDirectionG, uAvgG-dot(modifiedLightDirectionG,vec3(0.5)));
+		vChanWeightsB = vec4(modifiedLightDirectionB, uAvgB-dot(modifiedLightDirectionB,vec3(0.5)));
 		vChanWeightsR*=uMaxAlbedo;
 		vChanWeightsG*=uMaxAlbedo;
 		vChanWeightsB*=uMaxAlbedo;
@@ -164,7 +167,7 @@ function initShaders(){
 	*/
 	shaderProgramWeighted = loadShader( "chanweights-vs", "weightsum-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirectionR","uLightDirectionG","uLightDirectionB","uInvMatrix","uMaxAlbedo"]
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirectionR","uLightDirectionG","uLightDirectionB","uAvgR","uAvgG","uAvgB","uInvMatrix","uMaxAlbedo"]
 	});
 }
 
@@ -274,6 +277,9 @@ function drawScene(frameTime){
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionR, [guiParams.rGradx, guiParams.rGrady, guiParams.rGradz]);
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionG, [guiParams.gGradx, guiParams.gGrady, guiParams.gGradz]);
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionB, [guiParams.bGradx, guiParams.bGrady, guiParams.bGradz]);
+	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgR, guiParams.rAvg);
+	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgG, guiParams.gAvg);
+	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgB, guiParams.bAvg);
 	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
 	drawWorldScene(frameTime, 0);
