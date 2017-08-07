@@ -66,10 +66,16 @@
 	precision mediump float;
 	varying vec2 vTextureCoord;
 	uniform sampler2D uSampler;
-	varying vec4 vChanWeights;
+	varying vec4 vChanWeightsR;
+	varying vec4 vChanWeightsG;
+	varying vec4 vChanWeightsB;
 	
 	void main(void) {
-		vec4 preGammaOut = dot(texture2D(uSampler, vTextureCoord), vChanWeights) * vec4(1,1,1,0) + vec4(0,0,0,1);
+		//vec4 preGammaOut = dot(texture2D(uSampler, vTextureCoord), vChanWeights) * vec4(1,1,1,0) + vec4(0,0,0,1);
+		vec4 preGammaOut = vec4( dot(texture2D(uSampler, vTextureCoord), vChanWeightsR), 
+								dot(texture2D(uSampler, vTextureCoord), vChanWeightsG),
+								dot(texture2D(uSampler, vTextureCoord), vChanWeightsB),
+								1);
 	
 	    float gammaOut = 0.45;	//assume 2.2 gamma
 		//float gammaOut = 1.0;
@@ -87,18 +93,30 @@
 	attribute vec3 aVertexPosition;
 	attribute vec2 aTextureCoord;
 	varying vec2 vTextureCoord;
-	varying vec4 vChanWeights;
+	varying vec4 vChanWeightsR;
+	varying vec4 vChanWeightsG;
+	varying vec4 vChanWeightsB;
 	uniform mat4 uMVMatrix;
 	uniform mat3 uInvMatrix;
 	uniform mat4 uPMatrix;
-	uniform vec3 uLightDirection;
+	uniform vec3 uLightDirectionR;
+	uniform vec3 uLightDirectionG;
+	uniform vec3 uLightDirectionB;
 	uniform float uMaxAlbedo;	//textures baked with light scaled by 1/MaxAlbedo, to use full brightness range.
 	
 	void main(void) {
-		vec3 modifiedLightDirection = uInvMatrix * uLightDirection;
+		//TODO use matrix. make work with multiple vectors first (simple), then can test matrix version by comparison
+
+		vec3 modifiedLightDirectionR = uInvMatrix * uLightDirectionR;
+		vec3 modifiedLightDirectionG = uInvMatrix * uLightDirectionG;
+		vec3 modifiedLightDirectionB = uInvMatrix * uLightDirectionB;
 				
-		vChanWeights = vec4(modifiedLightDirection, 0.5 -0.5*dot(modifiedLightDirection,vec3(1)));
-		vChanWeights*=uMaxAlbedo;
+		vChanWeightsR = vec4(modifiedLightDirectionR, 0.5 -0.5*dot(modifiedLightDirectionR,vec3(1)));
+		vChanWeightsG = vec4(modifiedLightDirectionG, 0.5 -0.5*dot(modifiedLightDirectionG,vec3(1)));
+		vChanWeightsB = vec4(modifiedLightDirectionB, 0.5 -0.5*dot(modifiedLightDirectionB,vec3(1)));
+		vChanWeightsR*=uMaxAlbedo;
+		vChanWeightsG*=uMaxAlbedo;
+		vChanWeightsB*=uMaxAlbedo;
 		//TODO pass in and multiply by midbrightness
 	
 		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
@@ -146,7 +164,7 @@ function initShaders(){
 	*/
 	shaderProgramWeighted = loadShader( "chanweights-vs", "weightsum-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirection","uInvMatrix","uMaxAlbedo"]
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirectionR","uLightDirectionG","uLightDirectionB","uInvMatrix","uMaxAlbedo"]
 	});
 }
 
@@ -253,9 +271,9 @@ function drawScene(frameTime){
 	
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	
-	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirection, [guiParams.xLightDirection, guiParams.yLightDirection, guiParams.zLightDirection]);
-	
-
+	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionR, [guiParams.rGradx, guiParams.rGrady, guiParams.rGradz]);
+	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionG, [guiParams.gGradx, guiParams.gGrady, guiParams.gGradz]);
+	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionB, [guiParams.bGradx, guiParams.bGrady, guiParams.bGradz]);
 	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
 	drawWorldScene(frameTime, 0);
@@ -389,10 +407,18 @@ function initTexture(textureContainer, src) {
 
 var guiParams={
 	objectToDraw:'spaceship 0.4',
-	midBrightness:0.5,
-	xLightDirection:1,
-	yLightDirection:0,
-	zLightDirection:0,
+	rAvg:0.5,
+	rGradx:-0.9,
+	rGrady:-0.4,
+	rGradz:0,
+	gAvg:0.5,
+	gGradx:0.9,
+	gGrady:-0.4,
+	gGradz:0,
+	bAvg:0.5,
+	bGradx:0.9,
+	bGrady:-0.4,
+	bGradz:0,
 	maxAlbedo:0.4
 	};
 
@@ -416,12 +442,22 @@ function init(){
 
 	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship 0.4'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
+	
+	gui.add(guiParams, 'rAvg', 0, 1, 0.1);
+	gui.add(guiParams, 'rGradx', -1, 1, 0.1);
+	gui.add(guiParams, 'rGrady', -1, 1, 0.1);
+	gui.add(guiParams, 'rGradz', -1, 1, 0.1);
 
-	gui.add(guiParams, 'midBrightness', 0, 1, 0.1);
-	gui.add(guiParams, 'xLightDirection', -1, 1, 0.1);	//note for unsaturated results, keep magnitude of light direction <=1
-	gui.add(guiParams, 'yLightDirection', -1, 1, 0.1);
-	gui.add(guiParams, 'zLightDirection', -1, 1, 0.1);
-
+	gui.add(guiParams, 'gAvg', 0, 1, 0.1);
+	gui.add(guiParams, 'gGradx', -1, 1, 0.1);
+	gui.add(guiParams, 'gGrady', -1, 1, 0.1);
+	gui.add(guiParams, 'gGradz', -1, 1, 0.1);
+	
+	gui.add(guiParams, 'bAvg', 0, 1, 0.1);
+	gui.add(guiParams, 'bGradx', -1, 1, 0.1);
+	gui.add(guiParams, 'bGrady', -1, 1, 0.1);
+	gui.add(guiParams, 'bGradz', -1, 1, 0.1);
+	
 	gui.add(guiParams, 'maxAlbedo',0,1,0.1);
 	
 	canvas = document.getElementById("mycanvas");
