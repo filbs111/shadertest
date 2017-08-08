@@ -69,6 +69,7 @@
 	varying vec4 vChanWeightsR;
 	varying vec4 vChanWeightsG;
 	varying vec4 vChanWeightsB;
+	uniform float uInvGamma;
 	
 	void main(void) {
 		//vec4 preGammaOut = dot(texture2D(uSampler, vTextureCoord), vChanWeights) * vec4(1,1,1,0) + vec4(0,0,0,1);
@@ -77,9 +78,7 @@
 								dot(texture2D(uSampler, vTextureCoord), vChanWeightsB),
 								1);
 	
-	    float gammaOut = 0.45;	//assume 2.2 gamma
-		//float gammaOut = 1.0;
-		gl_FragColor = vec4(pow(preGammaOut.rgb, vec3(gammaOut)), 1 );
+		gl_FragColor = vec4(pow(preGammaOut.rgb, vec3(uInvGamma)), 1 );
 	
 	}
 </script>
@@ -115,6 +114,9 @@
 		vec3 modifiedLightDirectionB = uInvMatrix * uLightDirectionB;
 				
 		vChanWeightsR = vec4(modifiedLightDirectionR, uAvgR-dot(modifiedLightDirectionR,vec3(0.5)));
+		
+		
+		
 		vChanWeightsG = vec4(modifiedLightDirectionG, uAvgG-dot(modifiedLightDirectionG,vec3(0.5)));
 		vChanWeightsB = vec4(modifiedLightDirectionB, uAvgB-dot(modifiedLightDirectionB,vec3(0.5)));
 		vChanWeightsR*=uMaxAlbedo;
@@ -144,7 +146,7 @@
 
 <script type="text/javascript" src="utils/webgl_utils.js"></script>
 
-<script type="text/javascript" src="res/bunnyYZ.obj.json"></script>
+<script type="text/javascript" src="res/bunny-centred.obj.json"></script>
 <script type="text/javascript" src="res/crossYZ.obj.json"></script>
 <script type="text/javascript" src="res/sship-pointyc-tidy1-uv5-YZ-p04scale.obj.json"></script>
 <script type="text/javascript" src="res/sky/skybox_minus10scale.obj.json"></script>
@@ -167,7 +169,7 @@ function initShaders(){
 	*/
 	shaderProgramWeighted = loadShader( "chanweights-vs", "weightsum-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirectionR","uLightDirectionG","uLightDirectionB","uAvgR","uAvgG","uAvgB","uInvMatrix","uMaxAlbedo"]
+		uniforms:["uPMatrix","uMVMatrix","uSampler","uLightDirectionR","uLightDirectionG","uLightDirectionB","uAvgR","uAvgG","uAvgB","uInvMatrix","uMaxAlbedo","uInvGamma"]
 	});
 }
 
@@ -270,7 +272,7 @@ function drawScene(frameTime){
 	stats.begin();
 	
 	//draw the scene straight to the screen
-	mat4.perspective(60, gl.viewportWidth/ gl.viewportHeight, camParams.near, camParams.far, pMatrix); 
+	mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, camParams.near, camParams.far, pMatrix); 
 	
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	
@@ -280,6 +282,8 @@ function drawScene(frameTime){
 	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgR, guiParams.rAvg);
 	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgG, guiParams.gAvg);
 	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgB, guiParams.bAvg);
+	
+	gl.uniform1f(shaderProgramWeighted.uniforms.uInvGamma, 1/guiParams.gamma);
 	
 	setGlViewportIfNecessary(0, 0, gl.viewportWidth, gl.viewportHeight);
 	drawWorldScene(frameTime, 0);
@@ -425,7 +429,8 @@ var guiParams={
 	bGradx:0.9,
 	bGrady:-0.4,
 	bGradz:0,
-	maxAlbedo:0.4
+	maxAlbedo:0.4,
+	gamma:2.2
 	};
 
 var comboTexture={};
@@ -465,6 +470,8 @@ function init(){
 	gui.add(guiParams, 'bGradz', -1, 1, 0.1);
 	
 	gui.add(guiParams, 'maxAlbedo',0,1,0.1);
+	
+	gui.add(guiParams, 'gamma',1,3,0.1);
 	
 	canvas = document.getElementById("mycanvas");
 
