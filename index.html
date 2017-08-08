@@ -114,9 +114,6 @@
 		vec3 modifiedLightDirectionB = uInvMatrix * uLightDirectionB;
 				
 		vChanWeightsR = vec4(modifiedLightDirectionR, uAvgR-dot(modifiedLightDirectionR,vec3(0.5)));
-		
-		
-		
 		vChanWeightsG = vec4(modifiedLightDirectionG, uAvgG-dot(modifiedLightDirectionG,vec3(0.5)));
 		vChanWeightsB = vec4(modifiedLightDirectionB, uAvgB-dot(modifiedLightDirectionB,vec3(0.5)));
 		vChanWeightsR*=uMaxAlbedo;
@@ -279,9 +276,13 @@ function drawScene(frameTime){
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionR, [guiParams.rGradx, guiParams.rGrady, guiParams.rGradz]);
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionG, [guiParams.gGradx, guiParams.gGrady, guiParams.gGradz]);
 	gl.uniform3fv(shaderProgramWeighted.uniforms.uLightDirectionB, [guiParams.bGradx, guiParams.bGrady, guiParams.bGradz]);
-	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgR, guiParams.rAvg);
-	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgG, guiParams.gAvg);
-	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgB, guiParams.bAvg);
+	
+	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgR, 
+		guiParams.rMin+0.5*Math.sqrt(guiParams.rGradx*guiParams.rGradx + guiParams.rGrady*guiParams.rGrady + guiParams.rGradz*guiParams.rGradz));
+	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgG, 
+		guiParams.gMin+0.5*Math.sqrt(guiParams.gGradx*guiParams.gGradx + guiParams.gGrady*guiParams.gGrady + guiParams.gGradz*guiParams.gGradz));
+	gl.uniform1f(shaderProgramWeighted.uniforms.uAvgB, 
+		guiParams.bMin+0.5*Math.sqrt(guiParams.bGradx*guiParams.bGradx + guiParams.bGrady*guiParams.bGrady + guiParams.bGradz*guiParams.bGradz));
 	
 	gl.uniform1f(shaderProgramWeighted.uniforms.uInvGamma, 1/guiParams.gamma);
 	
@@ -422,15 +423,15 @@ function initTexture(textureContainer, src) {
 
 var guiParams={
 	objectToDraw:'spaceship 0.4',
-	rAvg:0.5,
+	rMin:0,
 	rGradx:-0.9,
 	rGrady:-0.4,
 	rGradz:0,
-	gAvg:0.5,
+	gMin:0,
 	gGradx:0.9,
 	gGrady:-0.4,
 	gGradz:0,
-	bAvg:0.5,
+	bMin:0,
 	bGradx:0.9,
 	bGrady:-0.4,
 	bGradz:0,
@@ -458,17 +459,17 @@ function init(){
 	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship 0.4'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
 	
-	gui.add(guiParams, 'rAvg', 0, 1, 0.1);
+	gui.add(guiParams, 'rMin', 0, 1, 0.1);
 	gui.add(guiParams, 'rGradx', -1, 1, 0.1);
 	gui.add(guiParams, 'rGrady', -1, 1, 0.1);
 	gui.add(guiParams, 'rGradz', -1, 1, 0.1);
 
-	gui.add(guiParams, 'gAvg', 0, 1, 0.1);
+	gui.add(guiParams, 'gMin', 0, 1, 0.1);
 	gui.add(guiParams, 'gGradx', -1, 1, 0.1);
 	gui.add(guiParams, 'gGrady', -1, 1, 0.1);
 	gui.add(guiParams, 'gGradz', -1, 1, 0.1);
 	
-	gui.add(guiParams, 'bAvg', 0, 1, 0.1);
+	gui.add(guiParams, 'bMin', 0, 1, 0.1);
 	gui.add(guiParams, 'bGradx', -1, 1, 0.1);
 	gui.add(guiParams, 'bGrady', -1, 1, 0.1);
 	gui.add(guiParams, 'bGradz', -1, 1, 0.1);
