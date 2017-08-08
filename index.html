@@ -295,29 +295,34 @@ mat4.translate(playerCamera,[0,0,-5]);
 
 function drawWorldScene(frameTime) {		
 	//console.log("drawing world scene");
-	
+	var currentAlbedo;
 	var objToDraw;
 	var texToUse;
 	switch (guiParams.objectToDraw){
 		case 'bunny 0.8':
 		objToDraw = bunnyBuffers;	//todo connect tex and obj in a single object.
 		texToUse = bunnyTexture;
+		currentAlbedo=0.8;
 		break;
 		case 'bunny 0.5':
 		objToDraw = bunnyBuffers;	//todo connect tex and obj in a single object.
 		texToUse = bunnyTextureP5;
+		currentAlbedo=0.5;
 		break;
 		case 'cross 0.8':
 		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
 		texToUse = comboTexture;
+		currentAlbedo=0.5;
 		break;
 		case 'cross 0.5':
 		objToDraw = crossBuffers;	//todo connect tex and obj in a single object.
 		texToUse = comboTextureP5;
+		currentAlbedo=0.5;
 		break;
 		case 'spaceship 0.4':
 		objToDraw = sshipBuffers;	//todo connect tex and obj in a single object.
 		texToUse = sshipTextureP4;
+		currentAlbedo=0.4;
 		break;
 	}
 	
@@ -347,7 +352,7 @@ function drawWorldScene(frameTime) {
 	mat4.rotateX(mvMatrix,pitchAng);
 
 	gl.bindTexture(gl.TEXTURE_2D, texToUse.texture);
-	gl.uniform1f(shaderProgramWeighted.uniforms.uMaxAlbedo, guiParams.maxAlbedo);				
+	gl.uniform1f(shaderProgramWeighted.uniforms.uMaxAlbedo, currentAlbedo);				
 	drawObjectFromBuffers(objToDraw, activeProg);
 	
 }
@@ -429,7 +434,6 @@ var guiParams={
 	bGradx:0.9,
 	bGrady:-0.4,
 	bGradz:0,
-	maxAlbedo:0.4,
 	gamma:2.2
 	};
 
@@ -468,9 +472,7 @@ function init(){
 	gui.add(guiParams, 'bGradx', -1, 1, 0.1);
 	gui.add(guiParams, 'bGrady', -1, 1, 0.1);
 	gui.add(guiParams, 'bGradz', -1, 1, 0.1);
-	
-	gui.add(guiParams, 'maxAlbedo',0,1,0.1);
-	
+		
 	gui.add(guiParams, 'gamma',1,3,0.1);
 	
 	canvas = document.getElementById("mycanvas");
