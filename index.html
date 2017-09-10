@@ -148,6 +148,7 @@
 <script type="text/javascript" src="res/sship-pointyc-tidy1-uv5-YZ-p04scale.obj.json"></script>
 <script type="text/javascript" src="res/sky/skybox_minus10scale.obj.json"></script>
 <script type="text/javascript" src="res/text/text.obj.json"></script>
+<script type="text/javascript" src="res/menger/menger3.obj.json.min"></script>
 
 <script type="text/javascript">
 
@@ -183,6 +184,7 @@ var crossBuffers={};
 var sshipBuffers={};
 var skyboxBuffers={};
 var textBuffers={};
+var mengerBuffers={};
 
 function initBuffers(){
 	
@@ -207,6 +209,10 @@ function initBuffers(){
 	var textObject = loadBlenderExport(textData);
 	delete textObject.normals;
 	loadBufferData(textBuffers, textObject);
+	
+	var mengerObject = loadBlenderExport(mengerData);
+	delete mengerObject.normals;
+	loadBufferData(mengerBuffers, mengerObject);
 	
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -336,6 +342,10 @@ function drawWorldScene(frameTime) {
 		texToUse = textTexture;
 		currentAlbedo=0.8;
 		break;
+		case 'menger 0.8':
+		objToDraw = mengerBuffers;
+		texToUse = mengerTexture;
+		currentAlbedo=0.8;
 	}
 	
 	mat4.set(playerCamera, mvMatrix)
@@ -454,6 +464,7 @@ var comboTextureP5={};
 var bunnyTexture={};
 var bunnyTextureP5={};
 var sshipTextureP4={};
+var mengerTexture={};
 var skyboxTexture={};
 var textTexture={};
 
@@ -468,7 +479,7 @@ function init(){
 	
 	gui = new dat.GUI();	//TODO
 
-	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship 0.4','text 0.8'];
+	var objectOptions = ['cross 0.8', 'cross 0.5', 'bunny 0.8', 'bunny 0.5', 'spaceship 0.4','text 0.8','menger 0.8'];
 	gui.add(guiParams, 'objectToDraw', objectOptions);
 	
 	gui.add(guiParams, 'rMin', 0, 1, 0.1);
@@ -535,11 +546,11 @@ function init(){
 	initTexture(bunnyTextureP5, "res/BunnyTexComboFR50pc.png");	//0.8 albedo
 	
 	initTexture(sshipTextureP4, "res/SshipTexCombouv5FR40pc.png");	// 0.4 albedo (normalised by *2.5)
+	initTexture(mengerTexture, "res/menger/menger3gradcombo.png");
 	
 	initTexture(skyboxTexture, "res/sky/Gradient.png");	//skybox (emmissive)
 	
 	initTexture(textTexture, "res/text/combo.png");	//skybox (emmissive)
-	
 	
 	
 	initBuffers();
