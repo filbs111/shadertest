@@ -46,6 +46,19 @@
 	}
 </script>
 
+<script id="sumchanstex-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSampler;
+	
+	void main(void) {
+		vec4 texSample = texture2D(uSampler, vTextureCoord);
+		float total = dot(vec4(vec3(1.0),0.0), texSample);
+		gl_FragColor = vec4(vec3(total), 1.0);
+	}
+</script>
+
+
 <script id="simple-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
 	attribute vec2 aTextureCoord;
@@ -70,6 +83,10 @@ var shaderPrograms={};
 
 function initShaders(){	
 	shaderPrograms.simple = loadShader( "simple-vs", "simpletex-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSampler"]
+	});
+	shaderPrograms.sumchans = loadShader( "simple-vs", "sumchanstex-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
 		uniforms:["uPMatrix","uMVMatrix","uSampler"]
 	});
@@ -179,7 +196,7 @@ function drawWorldScene(frameTime) {
 	mat4.rotateY(mvMatrix,frameTime/10000);
 	*/
 	
-	var activeProg=shaderPrograms.simple;
+	var activeProg=shaderPrograms.sumchans;
 	gl.useProgram(activeProg);
 	
 	gl.enableVertexAttribArray(1);
