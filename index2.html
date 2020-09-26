@@ -63,17 +63,20 @@
 	varying vec2 vTextureCoord;
 	uniform sampler2D uSamplerLinear;
 	uniform sampler2D uSamplerSquare;
+	uniform sampler2D uSamplerCross;
 	
 	uniform vec4 uLinearWeights;
 	uniform vec4 uSquareWeights;
+	uniform vec4 uCrossWeights;
 	uniform vec4 uColorTint;	//should just be 0/1 for "correct" radiosity. better approximation of intermediate 
 								//albedos might be acheived by raising textures to a power.
 
 	void main(void) {
 		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
 		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
+		vec4 texSampleCross = texture2D(uSamplerCross, vTextureCoord);
 
-		float total = dot(uLinearWeights, texSampleLinear) + dot(uSquareWeights, texSampleSquare);
+		float total = dot(uLinearWeights, texSampleLinear) + dot(uSquareWeights, texSampleSquare) + dot(uCrossWeights, texSampleCross);
 		gl_FragColor = uColorTint * vec4(vec3(pow(total,0.455)), 1.0);
 	}
 </script>
@@ -101,6 +104,7 @@
 var shaderPrograms={};
 
 var chanWeights = {
+	'omni': [0,0,0, 1,1,1],
 	'+x': [1,0,0, 0,-.25,-.25],
 		//want this light to be ((x+1)^2 ) /4
 		// => (x*x + 2x + 1) /4
@@ -144,14 +148,58 @@ var chanWeights = {
 		//affect contrived situations eg bottom of well below negative sky.
 		//float total = texSampleLinear.x - 0.2* (texSampleSquare.x + texSampleSquare.y + texSampleSquare.z);
 
-	'-x':[-1,0,0, 1,.75,.75],
-		// want this light to be ((x-1)^2 ) /4
-		//	=> (x*x - 2x + 1)/4
-		// sub in
-		//	(x*x - 2*(2*lin.x - 1) + 1) /4
-		// (x*x)/4 + 3*iso/4 - lin.x
-		//=> total is...  
-		//float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
+	'custom':null
+
+	//custom logic?
+	//'+x': [1,0,0, 0,-.25,-.25],
+	//'-x':[-1,0,0, 1,.75,.75],
+	//	, ...
+	// omni lighting is (0,0,0, )
+	// for a unit vector (vx,vy,cz), w is sky direction	
+	//	want this light to be ((v.w+1)^2 ) /4
+	// ie ((x*vx + y*vx + z*vz  +1 )^2 ) / 4
+	// =  .25*( x*x *(vx*vx) + y*y *(vy*vy) z*z *(vz*vz))    + .25* ( 2*( vx*(2*lin.x - 1) + ... ) + 1) 
+		// 2nd part here is
+	// .25* ( 4 (v dot lin) - omni(2 (vx + vy + vz) + 1))
+	// so 
+	// [ vx, vy, vz , .25-.5*(vx+vy+vz)+.25*(vx*vx), ]	//or something like this. matches +/- x result. sign?
+	//	then add in cross terms...
+
+	//calculate this in more sensible way? 
+	// simple gradient light in x direction is xlinear *2 - omni
+	//simple gradient in general direction 
+	// is 2*(xlinear, ylinear, zlinear)*lightDirection - omni*((1,1,1).lightDirection)
+
+	// ((x+1)/2)^2 = x*x/4 + x/2 + 1/4
+	//  parabolic light in some direction is avg(simple gradient , avg(simple square light, omni))
+	// 
+	// simple square light in some xy direction? 
+	// guess xdirection^2 * xx component + ydirection^2 * yy component  + xdirection*ydirection * xycomponent
+	// but really square light in (vx,vy) ? 
+	// (vx, vy) ^2  = vx*vx + vy*vy + 2*(vx*vy)
+	// and vx*vy light is encoded as x*y + 0.5
+	// so to get back out x*y, subtract 0.5*omni
+	// => for diagonal square light want 0.5*xxchan + 0.5*yychan + xychan - 0.5*omni
+	//	=> xychan - 0.5*zzchan
+	// for general square light? 
+
+	//
+	//	half simple gradient in general direction 
+	//									(xlinear, ylinear, zlinear)*lightDirection - .5*omni*((1,1,1).lightDirection)
+	//	quarter simple square light
+	//									.25* (xdirection^2 * xx component + ydirection^2 * yy component  + xdirection*ydirection * xycomponent)
+	//	quarter omni
+	//									.25*omni
+
+	// => totals
+	//	=>light in xy plane = 
+	// (where totaldir = (1,1,1).lightDirection = vx+vy+vz )
+	// [ vx, vy, 0 , .25*vx*vx-0.5*totaldir+.25 , .25*vy*vy-0.5*totaldir+.25, -0.5*totaldir+.25,  0, 0, vx*vy ]
+	// simplfy by totaldirb = .25 - (.5,.5,.5).lightDirection
+		//add totaldirb something for cross terms (vx*vy...)
+	//  [ vx, vy, 0 , .25*vx*vx+totaldirb , .25*vy*vy+totaldirb, totaldirb,  0, 0, vx*vy ]
+		//TODO add nonzero z...
+
 }
 var colorTints={
 	"white":[1,1,1],
@@ -174,7 +222,7 @@ function initShaders(){
 	});
 	shaderPrograms.fixedweights = loadShader( "simple-vs", "fixedweights-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare","uLinearWeights","uSquareWeights","uColorTint"]
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare","uSamplerCross","uLinearWeights","uSquareWeights","uCrossWeights","uColorTint"]
 	});
 	
 }
@@ -287,9 +335,24 @@ function drawWorldScene(frameTime) {
 	gl.useProgram(activeProg);
 	
 	var cWeights = chanWeights[guiParams.lightType];
+	var crossWeights = [0,0,0];
+
+	if (cWeights == null){
+		var ang = guiParams.customLightAng;
+		var rads = ang*Math.PI/180;
+		var xDir = Math.sin(rads);
+		var yDir = Math.cos(rads);
+
+		var totalDirB = .25 - .5*(xDir + yDir) + .25*xDir*yDir ;
+		cWeights = [xDir, yDir, 0,  .25*xDir*xDir + totalDirB, .25*yDir*yDir + totalDirB, totalDirB];
+		//cWeights = [0,0,0,0,0,0];
+		crossWeights = [0, 0, -.5*xDir*yDir];
+	}
+
 	//console.log(cWeights);
 	gl.uniform4f(activeProg.uniforms.uLinearWeights, cWeights[0],cWeights[1],cWeights[2],0);
 	gl.uniform4f(activeProg.uniforms.uSquareWeights, cWeights[3],cWeights[4],cWeights[5],0);
+	gl.uniform4f(activeProg.uniforms.uCrossWeights, crossWeights[0],crossWeights[1],crossWeights[2],0);
 
 	var tint = colorTints[guiParams.tint];
 	gl.uniform4f(activeProg.uniforms.uColorTint, tint[0],tint[1],tint[2],1);
@@ -306,6 +369,8 @@ function drawWorldScene(frameTime) {
 	gl.bindTexture(gl.TEXTURE_2D, textures.linear);
 	gl.activeTexture(gl.TEXTURE1);
 	gl.bindTexture(gl.TEXTURE_2D, textures.squared);
+	gl.activeTexture(gl.TEXTURE2);
+	gl.bindTexture(gl.TEXTURE_2D, textures.cross);
 	drawObjectFromBuffers(objToDraw, activeProg);
 }
 
@@ -334,6 +399,7 @@ function prepBuffersForDrawing(bufferObj, shaderProg){
 		//gl.uniform1i(shaderProg.uniforms.uSampler, 0);
 		gl.uniform1i(shaderProg.uniforms.uSamplerLinear, 0);
 		gl.uniform1i(shaderProg.uniforms.uSamplerSquare, 1);
+		gl.uniform1i(shaderProg.uniforms.uSamplerCross, 2);
 	}
 	gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);
 }
@@ -364,7 +430,8 @@ function initTexture(textureKey, src) {
 
 var guiParams={
 	lightType:'+x',
-	tint:"white"
+	tint:"white",
+	customLightAng:0
 	};
 
 var textures={};
@@ -381,6 +448,7 @@ function init(){
 	gui = new dat.GUI();
 	gui.add(guiParams, 'lightType', Object.keys(chanWeights));
 	gui.add(guiParams, 'tint', Object.keys(colorTints));
+	gui.add(guiParams, 'customLightAng',0,360,15);
 
 	canvas = document.getElementById("mycanvas");
 
