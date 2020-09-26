@@ -117,6 +117,9 @@ var chanWeights = {
 		// take the average of these values
 		//float total = texSampleLinear.x - 0.25*texSampleSquare.y - 0.25*texSampleSquare.z;
 
+	'+y': [0,1,0, -.25,0,-.25],
+	'+z': [0,0,1, -.25,-.25,0],
+
 	'-x': [-1,0,0, 1,.75,.75],
 		// want this light to be ((x-1)^2 ) /4
 		//	=> (x*x - 2x + 1)/4
@@ -125,6 +128,8 @@ var chanWeights = {
 		// (x*x)/4 + 3*iso/4 - lin.x
 		//=> total is...  
 		//float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
+	'-y': [0,-1,0, .75,1,.75],
+	'-z': [0,0,-1, .75,.75,1],
 
 	'+x even': [1,0,0, 0,0,0],
 		//want this light to be ((x+1) ) /2
@@ -374,7 +379,7 @@ function init(){
 	document.body.appendChild( stats.dom );
 	
 	gui = new dat.GUI();
-	gui.add(guiParams, 'lightType', ['+x','+x even','+x weak','+x fake','-x']);
+	gui.add(guiParams, 'lightType', Object.keys(chanWeights));
 	gui.add(guiParams, 'tint', Object.keys(colorTints));
 
 	canvas = document.getElementById("mycanvas");
