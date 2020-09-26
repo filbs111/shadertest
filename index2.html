@@ -149,7 +149,8 @@ var chanWeights = {
 		//float total = texSampleLinear.x - 0.2* (texSampleSquare.x + texSampleSquare.y + texSampleSquare.z);
 
 	'custom':null,
-	'custom even':null	//simple linear, should be equivalent to 4 channel version demoed in index.html
+	'custom even':null,	//simple linear, should be equivalent to 4 channel version demoed in index.html
+	'custom weak':null
 
 	//custom logic?
 	//'+x': [1,0,0, 0,-.25,-.25],
@@ -355,7 +356,11 @@ function drawWorldScene(frameTime) {
 		}else if (guiParams.lightType == 'custom even'){
 			var omniWeight = .5 -.5*(xDir + yDir + zDir);
 			cWeights = [xDir, yDir, zDir,  omniWeight, omniWeight, omniWeight];
-		}		
+		}else if (guiParams.lightType == 'custom weak'){
+			var totalDirB = .75 - .5*(xDir + yDir + zDir) + .25*(xDir*yDir +yDir*zDir+ xDir*zDir);
+			cWeights = [xDir, yDir, zDir,  -.25*xDir*xDir + totalDirB, -.25*yDir*yDir + totalDirB, -.25*zDir*zDir + totalDirB];
+			crossWeights = [-.5*yDir*zDir, -.5*xDir*zDir, -.5*xDir*yDir];
+		}
 	}
 
 	//console.log(cWeights);
