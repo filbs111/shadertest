@@ -88,6 +88,43 @@
 	}
 </script>
 
+<script id="xpositive-even-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSamplerLinear;
+	uniform sampler2D uSamplerSquare;
+	
+	void main(void) {
+		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
+		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
+
+		//want this light to be ((x+1) ) /2
+		
+		float total = texSampleLinear.x;
+
+		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
+	}
+</script>
+
+
+<script id="xpositive-weak-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSamplerLinear;
+	uniform sampler2D uSamplerSquare;
+	
+	void main(void) {
+		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
+		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
+
+		//want this light to iso - (-x) - here the dark part of the sky is sharper than the light part
+		
+		float total = texSampleLinear.x + 0.25*texSampleSquare.y + 0.25*texSampleSquare.z;
+
+		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
+	}
+</script>
+
 <script id="xnegative-fs" type="x-shader/x-fragment">
 	precision mediump float;
 	varying vec2 vTextureCoord;
@@ -144,6 +181,14 @@ function initShaders(){
 		uniforms:["uPMatrix","uMVMatrix","uSampler"]
 	});
 	shaderPrograms["+x"] = loadShader( "simple-vs", "xpositive-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
+	});
+	shaderPrograms["+x even"] = loadShader( "simple-vs", "xpositive-even-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
+	});
+	shaderPrograms["+x weak"] = loadShader( "simple-vs", "xpositive-weak-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
 		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
 	});
@@ -344,7 +389,7 @@ function init(){
 	document.body.appendChild( stats.dom );
 	
 	gui = new dat.GUI();
-	gui.add(guiParams, 'lightType', ['+x','-x']);
+	gui.add(guiParams, 'lightType', ['+x','+x even','+x weak','-x']);
 	
 	canvas = document.getElementById("mycanvas");
 
