@@ -65,14 +65,16 @@
 	uniform sampler2D uSamplerSquare;
 	
 	uniform vec4 uLinearWeights;
-	uniform vec4 uSquareWeights; 
+	uniform vec4 uSquareWeights;
+	uniform vec4 uColorTint;	//should just be 0/1 for "correct" radiosity. better approximation of intermediate 
+								//albedos might be acheived by raising textures to a power.
 
 	void main(void) {
 		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
 		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
 
 		float total = dot(uLinearWeights, texSampleLinear) + dot(uSquareWeights, texSampleSquare);
-		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
+		gl_FragColor = uColorTint * vec4(vec3(pow(total,0.455)), 1.0);
 	}
 </script>
 
@@ -145,7 +147,15 @@ var chanWeights = {
 		// (x*x)/4 + 3*iso/4 - lin.x
 		//=> total is...  
 		//float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
-
+}
+var colorTints={
+	"white":[1,1,1],
+	"red":[1,0,0],
+	"green":[0,1,0],
+	"blue":[0,0,1],
+	"cyan":[0,1,1],
+	"magenta":[1,0,1],
+	"yellow":[1,1,0]
 }
 
 function initShaders(){	
@@ -159,7 +169,7 @@ function initShaders(){
 	});
 	shaderPrograms.fixedweights = loadShader( "simple-vs", "fixedweights-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare","uLinearWeights","uSquareWeights"]
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare","uLinearWeights","uSquareWeights","uColorTint"]
 	});
 	
 }
@@ -276,6 +286,9 @@ function drawWorldScene(frameTime) {
 	gl.uniform4f(activeProg.uniforms.uLinearWeights, cWeights[0],cWeights[1],cWeights[2],0);
 	gl.uniform4f(activeProg.uniforms.uSquareWeights, cWeights[3],cWeights[4],cWeights[5],0);
 
+	var tint = colorTints[guiParams.tint];
+	gl.uniform4f(activeProg.uniforms.uColorTint, tint[0],tint[1],tint[2],1);
+
 	gl.enableVertexAttribArray(1);
 	
 	//TODO draw sky.
@@ -345,7 +358,8 @@ function initTexture(textureKey, src) {
 }
 
 var guiParams={
-	lightType:'+x'
+	lightType:'+x',
+	tint:"white"
 	};
 
 var textures={};
@@ -361,7 +375,8 @@ function init(){
 	
 	gui = new dat.GUI();
 	gui.add(guiParams, 'lightType', ['+x','+x even','+x weak','+x fake','-x']);
-	
+	gui.add(guiParams, 'tint', Object.keys(colorTints));
+
 	canvas = document.getElementById("mycanvas");
 
 	window.addEventListener("keydown",function(evt){
