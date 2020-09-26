@@ -148,7 +148,8 @@ var chanWeights = {
 		//affect contrived situations eg bottom of well below negative sky.
 		//float total = texSampleLinear.x - 0.2* (texSampleSquare.x + texSampleSquare.y + texSampleSquare.z);
 
-	'custom':null
+	'custom':null,
+	'custom even':null	//simple linear, should be equivalent to 4 channel version demoed in index.html
 
 	//custom logic?
 	//'+x': [1,0,0, 0,-.25,-.25],
@@ -347,9 +348,14 @@ function drawWorldScene(frameTime) {
 		xDir*=cosElev;
 		yDir*=cosElev;
 
-		var totalDirB = .25 - .5*(xDir + yDir + zDir) - .25*(xDir*yDir +yDir*zDir+ xDir*zDir);
-		cWeights = [xDir, yDir, zDir,  .25*xDir*xDir + totalDirB, .25*yDir*yDir + totalDirB, .25*zDir*zDir + totalDirB];
-		crossWeights = [.5*yDir*zDir, .5*xDir*zDir, .5*xDir*yDir];
+		if (guiParams.lightType == 'custom'){
+			var totalDirB = .25 - .5*(xDir + yDir + zDir) - .25*(xDir*yDir +yDir*zDir+ xDir*zDir);
+			cWeights = [xDir, yDir, zDir,  .25*xDir*xDir + totalDirB, .25*yDir*yDir + totalDirB, .25*zDir*zDir + totalDirB];
+			crossWeights = [.5*yDir*zDir, .5*xDir*zDir, .5*xDir*yDir];
+		}else if (guiParams.lightType == 'custom even'){
+			var omniWeight = .5 -.5*(xDir + yDir + zDir);
+			cWeights = [xDir, yDir, zDir,  omniWeight, omniWeight, omniWeight];
+		}		
 	}
 
 	//console.log(cWeights);
