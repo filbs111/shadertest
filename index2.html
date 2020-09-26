@@ -338,15 +338,18 @@ function drawWorldScene(frameTime) {
 	var crossWeights = [0,0,0];
 
 	if (cWeights == null){
-		var ang = guiParams.customLightAng;
-		var rads = ang*Math.PI/180;
-		var xDir = Math.sin(rads);
-		var yDir = Math.cos(rads);
+		var ang = guiParams.customLightAng *Math.PI/180;
+		var xDir = Math.sin(ang);
+		var yDir = Math.cos(ang);
+		var elev = guiParams.customLightElev *Math.PI/180;
+		var zDir = Math.sin(elev);
+		var cosElev = Math.cos(elev);
+		xDir*=cosElev;
+		yDir*=cosElev;
 
-		var totalDirB = .25 - .5*(xDir + yDir) + .25*xDir*yDir ;
-		cWeights = [xDir, yDir, 0,  .25*xDir*xDir + totalDirB, .25*yDir*yDir + totalDirB, totalDirB];
-		//cWeights = [0,0,0,0,0,0];
-		crossWeights = [0, 0, -.5*xDir*yDir];
+		var totalDirB = .25 - .5*(xDir + yDir + zDir) - .25*(xDir*yDir +yDir*zDir+ xDir*zDir);
+		cWeights = [xDir, yDir, zDir,  .25*xDir*xDir + totalDirB, .25*yDir*yDir + totalDirB, .25*zDir*zDir + totalDirB];
+		crossWeights = [.5*yDir*zDir, .5*xDir*zDir, .5*xDir*yDir];
 	}
 
 	//console.log(cWeights);
@@ -431,7 +434,8 @@ function initTexture(textureKey, src) {
 var guiParams={
 	lightType:'+x',
 	tint:"white",
-	customLightAng:0
+	customLightAng:0,
+	customLightElev:0
 	};
 
 var textures={};
@@ -449,6 +453,7 @@ function init(){
 	gui.add(guiParams, 'lightType', Object.keys(chanWeights));
 	gui.add(guiParams, 'tint', Object.keys(colorTints));
 	gui.add(guiParams, 'customLightAng',0,360,15);
+	gui.add(guiParams, 'customLightElev',-90,90,15);
 
 	canvas = document.getElementById("mycanvas");
 
