@@ -368,12 +368,15 @@ function drawWorldScene(frameTime) {
 	mat4.rotateZ(mvMatrix,turnAng);
 	mat4.rotateX(mvMatrix,pitchAng);
 
+
+	var texBaseObj = guiParams.textureType == 'png'? textures : jpgTextures;
+
 	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, textures.linear);
+	gl.bindTexture(gl.TEXTURE_2D, texBaseObj.linear);
 	gl.activeTexture(gl.TEXTURE1);
-	gl.bindTexture(gl.TEXTURE_2D, textures.squared);
+	gl.bindTexture(gl.TEXTURE_2D, texBaseObj.squared);
 	gl.activeTexture(gl.TEXTURE2);
-	gl.bindTexture(gl.TEXTURE_2D, textures.cross);
+	gl.bindTexture(gl.TEXTURE_2D, texBaseObj.cross);
 	drawObjectFromBuffers(objToDraw, activeProg);
 }
 
@@ -411,7 +414,7 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
 	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
-function initTexture(textureKey, src) {
+function initTexture(baseObj, textureKey, src) {
 	var texture = gl.createTexture();
 	texture.image = new Image();
 	texture.image.onload = function() {
@@ -428,17 +431,19 @@ function initTexture(textureKey, src) {
 		gl.bindTexture(gl.TEXTURE_2D, null);
 	}
 	texture.image.src = src;
-	textures[textureKey] = texture;
+	baseObj[textureKey] = texture;
 }
 
 var guiParams={
 	lightType:'+x',
 	tint:"white",
 	customLightAng:0,
-	customLightElev:0
+	customLightElev:0,
+	textureType:'png'
 	};
 
 var textures={};
+var jpgTextures={};
 
 var turnAng=Math.PI/2;
 var pitchAng=0;
@@ -454,6 +459,7 @@ function init(){
 	gui.add(guiParams, 'tint', Object.keys(colorTints));
 	gui.add(guiParams, 'customLightAng',0,360,15);
 	gui.add(guiParams, 'customLightElev',-90,90,15);
+	gui.add(guiParams, 'textureType',['png','jpg']);
 
 	canvas = document.getElementById("mycanvas");
 
@@ -485,9 +491,12 @@ function init(){
 	
 	initShaders();
 	
-	initTexture('linear', "res/sundial/linear_terms_bake1.png");
-	initTexture('squared', "res/sundial/square_terms_bake1.png");
-	initTexture('cross', "res/sundial/cross_terms_bake1.png");
+	initTexture(textures,'linear', "res/sundial/linear_terms_bake1.png");
+	initTexture(textures,'squared', "res/sundial/square_terms_bake1.png");
+	initTexture(textures,'cross', "res/sundial/cross_terms_bake1.png");
+	initTexture(jpgTextures,'linear', "res/sundial/linear_terms_bake1.jpg");
+	initTexture(jpgTextures,'squared', "res/sundial/square_terms_bake1.jpg");
+	initTexture(jpgTextures,'cross', "res/sundial/cross_terms_bake1.jpg");
 	
 	initBuffers();
 	gl.clearColor(0.5, 1.0, 1.0, 1.0);
