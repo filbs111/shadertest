@@ -58,6 +58,59 @@
 	}
 </script>
 
+<script id="xpositive-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSamplerLinear;
+	uniform sampler2D uSamplerSquare;
+	
+	void main(void) {
+		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
+		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
+
+		//want this light to be ((x+1)^2 ) /4
+		// => (x*x + 2x + 1) /4
+		// linear x component is light (x+1)/2
+		//	(2*lin.x - 1) = x
+		// sub in 
+		//	(x*x + 2*(2*lin.x - 1) + 1) /4
+		//	(x*x)/4 - iso/4 + lin.x
+		//	iso = x*x + y*y + z*z
+		//=> total is... lin.x - (y*y + z*z)/4
+
+		// square x component is light x*x
+		//to get a strong light that goes from 0 to 1 as x goes from -1 to 1,
+		// take the average of these values
+
+		float total = texSampleLinear.x - 0.25*texSampleSquare.y - 0.25*texSampleSquare.z;
+
+		gl_FragColor = vec4(vec3(total), 1.0);
+	}
+</script>
+
+<script id="xnegative-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec2 vTextureCoord;
+	uniform sampler2D uSamplerLinear;
+	uniform sampler2D uSamplerSquare;
+	
+	void main(void) {
+		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
+		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
+
+		// want this light to be ((x-1)^2 ) /4
+		//	=> (x*x - 2x + 1)/4
+		// sub in
+		//	(x*x - 2*(2*lin.x - 1) + 1) /4
+		// (x*x)/4 + 3*iso/4 - lin.x
+		//=> total is...  
+
+		float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
+
+		gl_FragColor = vec4(vec3(total), 1.0);
+	}
+</script>
+
 
 <script id="simple-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
@@ -89,6 +142,14 @@ function initShaders(){
 	shaderPrograms.sumchans = loadShader( "simple-vs", "sumchanstex-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
 		uniforms:["uPMatrix","uMVMatrix","uSampler"]
+	});
+	shaderPrograms["+x"] = loadShader( "simple-vs", "xpositive-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
+	});
+	shaderPrograms["-x"] = loadShader( "simple-vs", "xnegative-fs",{
+		attributes:["aVertexPosition","aTextureCoord"],
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
 	});
 }
 
@@ -186,7 +247,7 @@ mat4.translate(playerCamera,[0,-5,-25]);
 
 function drawWorldScene(frameTime) {		
 	var objToDraw = sundialBuffers;
-	var texToUse = textures[guiParams.texToDisplay];
+	//var texToUse = textures[guiParams.texToDisplay];
 
 	mat4.set(playerCamera, mvMatrix)
 	
@@ -196,7 +257,7 @@ function drawWorldScene(frameTime) {
 	mat4.rotateY(mvMatrix,frameTime/10000);
 	*/
 	
-	var activeProg=shaderPrograms.sumchans;
+	var activeProg=shaderPrograms[guiParams.lightType];
 	gl.useProgram(activeProg);
 	
 	gl.enableVertexAttribArray(1);
@@ -207,7 +268,10 @@ function drawWorldScene(frameTime) {
 	mat4.rotateZ(mvMatrix,turnAng);
 	mat4.rotateX(mvMatrix,pitchAng);
 
-	gl.bindTexture(gl.TEXTURE_2D, texToUse);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, textures.linear);
+	gl.activeTexture(gl.TEXTURE1);
+	gl.bindTexture(gl.TEXTURE_2D, textures.squared);
 	drawObjectFromBuffers(objToDraw, activeProg);
 }
 
@@ -232,8 +296,10 @@ function prepBuffersForDrawing(bufferObj, shaderProg){
 		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexTextureCoordBuffer);
 		gl.vertexAttribPointer(shaderProg.attributes.aTextureCoord, bufferObj.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	
-		gl.activeTexture(gl.TEXTURE0);
-		gl.uniform1i(shaderProg.uniforms.uSampler, 0);
+		//gl.activeTexture(gl.TEXTURE0);
+		//gl.uniform1i(shaderProg.uniforms.uSampler, 0);
+		gl.uniform1i(shaderProg.uniforms.uSamplerLinear, 0);
+		gl.uniform1i(shaderProg.uniforms.uSamplerSquare, 1);
 	}
 	gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);
 }
@@ -263,7 +329,7 @@ function initTexture(textureKey, src) {
 }
 
 var guiParams={
-	texToDisplay:'linear'
+	lightType:'+x'
 	};
 
 var textures={};
@@ -278,7 +344,7 @@ function init(){
 	document.body.appendChild( stats.dom );
 	
 	gui = new dat.GUI();
-	gui.add(guiParams, 'texToDisplay', ['linear','squared','cross']);
+	gui.add(guiParams, 'lightType', ['+x','-x']);
 	
 	canvas = document.getElementById("mycanvas");
 
