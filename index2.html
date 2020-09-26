@@ -150,7 +150,8 @@ var chanWeights = {
 
 	'custom':null,
 	'custom even':null,	//simple linear, should be equivalent to 4 channel version demoed in index.html
-	'custom weak':null
+	'custom weak':null,
+	'custom custom':null
 
 	//custom logic?
 	//'+x': [1,0,0, 0,-.25,-.25],
@@ -360,6 +361,11 @@ function drawWorldScene(frameTime) {
 			var totalDirB = .75 - .5*(xDir + yDir + zDir) + .25*(xDir*yDir +yDir*zDir+ xDir*zDir);
 			cWeights = [xDir, yDir, zDir,  -.25*xDir*xDir + totalDirB, -.25*yDir*yDir + totalDirB, -.25*zDir*zDir + totalDirB];
 			crossWeights = [-.5*yDir*zDir, -.5*xDir*zDir, -.5*xDir*yDir];
+		}else if (guiParams.lightType == 'custom custom'){
+			var sharp = .5*guiParams.customCustomLightSharp;	//customCustomLightSharp 1 = "custom", 0 = "custom even", -1 = "custom weak"
+			var totalDirB = .5-.5*sharp*(1+(xDir*yDir +yDir*zDir+ xDir*zDir)) - .5*(xDir + yDir + zDir);
+			cWeights = [xDir, yDir, zDir,  .5*sharp*xDir*xDir + totalDirB, .5*sharp*yDir*yDir + totalDirB, .5*sharp*zDir*zDir + totalDirB];
+			crossWeights = [sharp*yDir*zDir, sharp*xDir*zDir, sharp*xDir*yDir];
 		}
 	}
 
@@ -450,6 +456,7 @@ var guiParams={
 	tint:"white",
 	customLightAng:0,
 	customLightElev:0,
+	customCustomLightSharp:1,
 	textureType:'png'
 	};
 
@@ -470,6 +477,7 @@ function init(){
 	gui.add(guiParams, 'tint', Object.keys(colorTints));
 	gui.add(guiParams, 'customLightAng',0,360,15);
 	gui.add(guiParams, 'customLightElev',-90,90,15);
+	gui.add(guiParams, 'customCustomLightSharp',-2,2,.1);
 	gui.add(guiParams, 'textureType',['png','jpg']);
 
 	canvas = document.getElementById("mycanvas");
