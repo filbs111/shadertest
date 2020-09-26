@@ -84,7 +84,7 @@
 
 		float total = texSampleLinear.x - 0.25*texSampleSquare.y - 0.25*texSampleSquare.z;
 
-		gl_FragColor = vec4(vec3(total), 1.0);
+		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
 	}
 </script>
 
@@ -107,7 +107,7 @@
 
 		float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
 
-		gl_FragColor = vec4(vec3(total), 1.0);
+		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
 	}
 </script>
 
