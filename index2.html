@@ -58,114 +58,23 @@
 	}
 </script>
 
-<script id="xpositive-fs" type="x-shader/x-fragment">
+<script id="fixedweights-fs" type="x-shader/x-fragment">
 	precision mediump float;
 	varying vec2 vTextureCoord;
 	uniform sampler2D uSamplerLinear;
 	uniform sampler2D uSamplerSquare;
 	
+	uniform vec4 uLinearWeights;
+	uniform vec4 uSquareWeights; 
+
 	void main(void) {
 		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
 		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
 
-		//want this light to be ((x+1)^2 ) /4
-		// => (x*x + 2x + 1) /4
-		// linear x component is light (x+1)/2
-		//	(2*lin.x - 1) = x
-		// sub in 
-		//	(x*x + 2*(2*lin.x - 1) + 1) /4
-		//	(x*x)/4 - iso/4 + lin.x
-		//	iso = x*x + y*y + z*z
-		//=> total is... lin.x - (y*y + z*z)/4
-
-		// square x component is light x*x
-		//to get a strong light that goes from 0 to 1 as x goes from -1 to 1,
-		// take the average of these values
-
-		float total = texSampleLinear.x - 0.25*texSampleSquare.y - 0.25*texSampleSquare.z;
-
+		float total = dot(uLinearWeights, texSampleLinear) + dot(uSquareWeights, texSampleSquare);
 		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
 	}
 </script>
-
-<script id="xpositive-even-fs" type="x-shader/x-fragment">
-	precision mediump float;
-	varying vec2 vTextureCoord;
-	uniform sampler2D uSamplerLinear;
-	uniform sampler2D uSamplerSquare;
-	
-	void main(void) {
-		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
-		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
-
-		//want this light to be ((x+1) ) /2
-		
-		float total = texSampleLinear.x;
-
-		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
-	}
-</script>
-
-<script id="xpositive-weak-fs" type="x-shader/x-fragment">
-	precision mediump float;
-	varying vec2 vTextureCoord;
-	uniform sampler2D uSamplerLinear;
-	uniform sampler2D uSamplerSquare;
-	
-	void main(void) {
-		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
-		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
-
-		//want this light to iso - (-x) - here the dark part of the sky is sharper than the light part
-		
-		float total = texSampleLinear.x + 0.25*texSampleSquare.y + 0.25*texSampleSquare.z;
-
-		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
-	}
-</script>
-
-<script id="xpositive-fake-fs" type="x-shader/x-fragment">
-	precision mediump float;
-	varying vec2 vTextureCoord;
-	uniform sampler2D uSamplerLinear;
-	uniform sampler2D uSamplerSquare;
-	
-	void main(void) {
-		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
-		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
-
-		//make a fake strong light using just linear/omni. resulting light from some part of sky will be negative, but should only 
-		//affect contrived situations eg bottom of well below negative sky.
-		
-		float total = texSampleLinear.x - 0.2* (texSampleSquare.x + texSampleSquare.y + texSampleSquare.z);
-
-		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
-	}
-</script>
-
-<script id="xnegative-fs" type="x-shader/x-fragment">
-	precision mediump float;
-	varying vec2 vTextureCoord;
-	uniform sampler2D uSamplerLinear;
-	uniform sampler2D uSamplerSquare;
-	
-	void main(void) {
-		vec4 texSampleLinear = texture2D(uSamplerLinear, vTextureCoord);
-		vec4 texSampleSquare = texture2D(uSamplerSquare, vTextureCoord);
-
-		// want this light to be ((x-1)^2 ) /4
-		//	=> (x*x - 2x + 1)/4
-		// sub in
-		//	(x*x - 2*(2*lin.x - 1) + 1) /4
-		// (x*x)/4 + 3*iso/4 - lin.x
-		//=> total is...  
-
-		float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
-
-		gl_FragColor = vec4(vec3(pow(total,0.455)), 1.0);
-	}
-</script>
-
 
 <script id="simple-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
@@ -189,6 +98,56 @@
 
 var shaderPrograms={};
 
+var chanWeights = {
+	'+x': [1,0,0, 0,-.25,-.25],
+		//want this light to be ((x+1)^2 ) /4
+		// => (x*x + 2x + 1) /4
+		// linear x component is light (x+1)/2
+		//	(2*lin.x - 1) = x
+		// sub in 
+		//	(x*x + 2*(2*lin.x - 1) + 1) /4
+		//	(x*x)/4 - iso/4 + lin.x
+		//	iso = x*x + y*y + z*z
+		//=> total is... lin.x - (y*y + z*z)/4
+
+		// square x component is light x*x
+		//to get a strong light that goes from 0 to 1 as x goes from -1 to 1,
+		// take the average of these values
+		//float total = texSampleLinear.x - 0.25*texSampleSquare.y - 0.25*texSampleSquare.z;
+
+	'-x': [-1,0,0, 1,.75,.75],
+		// want this light to be ((x-1)^2 ) /4
+		//	=> (x*x - 2x + 1)/4
+		// sub in
+		//	(x*x - 2*(2*lin.x - 1) + 1) /4
+		// (x*x)/4 + 3*iso/4 - lin.x
+		//=> total is...  
+		//float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
+
+	'+x even': [1,0,0, 0,0,0],
+		//want this light to be ((x+1) ) /2
+		//float total = texSampleLinear.x;
+
+	'+x weak': [1,0,0, 0,.25,.25],
+		//want this light to iso - (-x) - here the dark part of the sky is sharper than the light part
+		//float total = texSampleLinear.x + 0.25*texSampleSquare.y + 0.25*texSampleSquare.z;
+
+	'+x fake':[1,0,0, -.2,-.2,-.2],
+		//make a fake strong light using just linear/omni. resulting light from some part of sky will be negative, but should only 
+		//affect contrived situations eg bottom of well below negative sky.
+		//float total = texSampleLinear.x - 0.2* (texSampleSquare.x + texSampleSquare.y + texSampleSquare.z);
+
+	'-x':[-1,0,0, 1,.75,.75],
+		// want this light to be ((x-1)^2 ) /4
+		//	=> (x*x - 2x + 1)/4
+		// sub in
+		//	(x*x - 2*(2*lin.x - 1) + 1) /4
+		// (x*x)/4 + 3*iso/4 - lin.x
+		//=> total is...  
+		//float total = -texSampleLinear.x + texSampleSquare.x + 0.75*texSampleSquare.y + 0.75*texSampleSquare.z;
+
+}
+
 function initShaders(){	
 	shaderPrograms.simple = loadShader( "simple-vs", "simpletex-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
@@ -198,26 +157,11 @@ function initShaders(){
 		attributes:["aVertexPosition","aTextureCoord"],
 		uniforms:["uPMatrix","uMVMatrix","uSampler"]
 	});
-	shaderPrograms["+x"] = loadShader( "simple-vs", "xpositive-fs",{
+	shaderPrograms.fixedweights = loadShader( "simple-vs", "fixedweights-fs",{
 		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
+		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare","uLinearWeights","uSquareWeights"]
 	});
-	shaderPrograms["+x even"] = loadShader( "simple-vs", "xpositive-even-fs",{
-		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
-	});
-	shaderPrograms["+x weak"] = loadShader( "simple-vs", "xpositive-weak-fs",{
-		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
-	});
-	shaderPrograms["+x fake"] = loadShader( "simple-vs", "xpositive-fake-fs",{
-		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
-	});
-	shaderPrograms["-x"] = loadShader( "simple-vs", "xnegative-fs",{
-		attributes:["aVertexPosition","aTextureCoord"],
-		uniforms:["uPMatrix","uMVMatrix","uSamplerLinear","uSamplerSquare"]
-	});
+	
 }
 
 var mvMatrix = mat4.create();
@@ -324,9 +268,14 @@ function drawWorldScene(frameTime) {
 	mat4.rotateY(mvMatrix,frameTime/10000);
 	*/
 	
-	var activeProg=shaderPrograms[guiParams.lightType];
+	var activeProg=shaderPrograms.fixedweights;
 	gl.useProgram(activeProg);
 	
+	var cWeights = chanWeights[guiParams.lightType];
+	//console.log(cWeights);
+	gl.uniform4f(activeProg.uniforms.uLinearWeights, cWeights[0],cWeights[1],cWeights[2],0);
+	gl.uniform4f(activeProg.uniforms.uSquareWeights, cWeights[3],cWeights[4],cWeights[5],0);
+
 	gl.enableVertexAttribArray(1);
 	
 	//TODO draw sky.
