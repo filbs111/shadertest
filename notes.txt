@@ -1,0 +1,51 @@
+revisiting this project 2020-09. see index2.html
+
+instead of 4-channel baked info packed into ARGB texture, use 9 channels. 3 for linear gradient skylights (x,y,z), 3 square (xx, yy, zz), 
+3 cross (yz,zx,xy). note that the previous iso (isometric skylight) alpha channel is equal to the sum of the square channels. (since xx+yy+zz=1)
+
+this allows a sharper light to be made. instead of having a light which is 1 in some direction, 0 in the opposite direction, and 0.5 for orthogonal 
+directions, a light can from 0.25 in orthogonal directions, to 0.75 if a "weak" light is wanted.
+
+blender file included used to create obj file and bake textures. to transform obj to format used by web page in this project, use assimp2json tool 
+(available elsewhere) then run node script clean.obj.txt.js to trim unneeded parts.
+$ assimp2json sundial.obj > sundial.obj.json
+$ node clean.obj.txt.js sundial.obj.json
+
+prepend "var someObj = " to json file, include as js script. ( TODO just load json )
+
+when baking textures, in the node editor for the sky object, link the rightmost vector output of "linear gradient", "square terms" or 
+"cross terms" to the input of the emission node, select the matching texture in the node editor for the object being baked, ensure "color space" 
+is "linear" (careful - this might switch back to sRGB...), and bake the texture. save as png, which saves it without gAMA chunk. shouldn't matter 
+whether then load in webgl using gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE), or default.
+
+end result IMO not far from simple 4-channel result, and requires 3 texture maps. note that the 4-channel result can be seen by selecting "even" 
+lighting, or "custom custom" lighting with sharpness 0.
+
+TODO
+
+normalize bakes by (maximum) albedo of object. this was done in 4-channel version. (see index.html)
+
+try linear, cross terms being for +1 to -1 light, with 0.5 = 0 in texture signifying zero light. (currently bakes are made with lighting from 0->1) 
+maybe harder to create textures, but process to calculate components at runtime more symmetric, simpler?
+
+try approximating bakes for arbitrary albedo by raising bake for some albedo to a power. might get reasonable rendering of objects of different 
+brightness and colour (non-grey) from single set of baked textures, gl texture slots.
+
+add cubic bakes. this should permit sharper still sunlight (orthogonal direction 0.125), in addition to sharper hemisphere skylight. 
+should be able to do in 16 channels => pack to 4 ARGB textures.
+
+(xx, yy, zz), (yz,zx,xy), (xxx, xyy, xzz), (yxx, yyy, yzz), (zxx, zyy, zzz), xyz
+
+note that linear bakes (z,y,z) omitted, can be recovered from other channels:
+
+x = (xxx + xyy + xzz),
+y = (yxx + yyy + yzz),
+z = (zxx + zyy + zzz)
+
+
+reduce file size. ARGB 4444 with dithering? convert RGB to 565? (which terms go in 6 ?) jpg compression? more samples in renders for cleaner 
+results? png crush? 
+
+use texture compression to reduce graphics memory. which channels change together and can be packed into same texture?
+
+tangent space detail bakes, weighted by low resolution bakes.
