@@ -89,6 +89,37 @@
 	}
 </script>
 
+<script id="fixedweights-sky-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec3 vPos;
+
+	uniform vec4 uLinearWeightsR;
+	uniform vec4 uLinearWeightsG;
+	uniform vec4 uLinearWeightsB;
+	uniform vec4 uSquareWeightsR;
+	uniform vec4 uSquareWeightsG;
+	uniform vec4 uSquareWeightsB;
+	uniform vec4 uCrossWeightsR;
+	uniform vec4 uCrossWeightsG;
+	uniform vec4 uCrossWeightsB;
+
+	//this uses functions to create result that would be in baked textures. could simplify maths in here and modify the weights passed in
+	void main(void) {
+		vec3 vPosSwizzled = vec3(vPos.x, -vPos.z, vPos.y);	//trial and error swizzling. guess due to whatever set blender axes export to.
+															//could go in vert shader
+		vec3 vPosNormed = normalize(vPosSwizzled);
+		vec4 texSampleLinear = vec4( 0.5 + 0.5*vPosNormed, 0.0);
+		vec4 texSampleSquare = vec4( vPosNormed*vPosNormed, 0.0 );
+		vec3 crossPart = vec3(vPosNormed.y*vPosNormed.z, vPosNormed.x*vPosNormed.z, vPosNormed.x*vPosNormed.y);
+		vec4 texSampleCross = vec4( 0.5+ crossPart , 0.0);
+
+		float totalR = dot(uLinearWeightsR, texSampleLinear) + dot(uSquareWeightsR, texSampleSquare) + dot(uCrossWeightsR, texSampleCross);
+		float totalG = dot(uLinearWeightsG, texSampleLinear) + dot(uSquareWeightsG, texSampleSquare) + dot(uCrossWeightsG, texSampleCross);
+		float totalB = dot(uLinearWeightsB, texSampleLinear) + dot(uSquareWeightsB, texSampleSquare) + dot(uCrossWeightsB, texSampleCross);
+		gl_FragColor = vec4((pow(vec3(totalR,totalG,totalB),vec3(0.455))), 1.0);
+	}
+</script>
+
 <script id="simple-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
 	attribute vec2 aTextureCoord;
@@ -102,10 +133,23 @@
 	}
 </script>
 
+<script id="sky-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	varying vec3 vPos;
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	
+	void main(void) {
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		vPos = aVertexPosition;
+	}
+</script>
+
 
 
 <script type="text/javascript" src="utils/webgl_utils.js"></script>
 <script type="text/javascript" src="res/sundial/sundial.obj.json.min"></script>
+<script type="text/javascript" src="res/sky/skybox_minus10scale.obj.json"></script>
 
 <script type="text/javascript">
 
@@ -239,6 +283,13 @@ function initShaders(){
 			"uLinearWeightsB","uSquareWeightsB","uCrossWeightsB",
 			"uColorTint"]
 	});
+	shaderPrograms.sky = loadShader( "sky-vs", "fixedweights-sky-fs",{
+		attributes:["aVertexPosition"],
+		uniforms:["uPMatrix","uMVMatrix",
+			"uLinearWeightsR","uSquareWeightsR","uCrossWeightsR",	//TODO use matrices
+			"uLinearWeightsG","uSquareWeightsG","uCrossWeightsG",
+			"uLinearWeightsB","uSquareWeightsB","uCrossWeightsB"]
+	});
 	
 }
 
@@ -246,6 +297,7 @@ var mvMatrix = mat4.create();
 var pMatrix = mat4.create();
 
 var sundialBuffers={};
+var skyboxBuffers={};
 
 function initBuffers(){
 	
@@ -255,6 +307,13 @@ function initBuffers(){
 	delete sundialObject.normals;	//because current shader doesn't use
 	loadBufferData(sundialBuffers, sundialObject);
 	
+		//note that in index.html, skybox uses same shader, to blend baked textures, as other objects.
+		//in index2.html, just use a special shader to calculate these textures as function of normalised position.
+	var skyboxObject = loadBlenderExport(skyboxData);
+	delete skyboxObject.normals;	//because current shader doesn't use
+	delete skyboxObject.uvcoords;	// ""
+	loadBufferData(skyboxBuffers, skyboxObject);
+
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
@@ -330,9 +389,10 @@ function drawScene(frameTime){
 	drawWorldScene(frameTime, 0);
 }
 
-var playerCamera=mat4.create();
-mat4.identity(playerCamera);	//default??
+var playerCamera=mat4.identity();
 mat4.translate(playerCamera,[0,-5,-25]);
+var skyboxCamera=mat4.identity();
+mat4.scale(skyboxCamera, [20,20,20]);	//make skybox big
 
 function drawWorldScene(frameTime) {		
 	var objToDraw = sundialBuffers;
@@ -416,12 +476,8 @@ function drawWorldScene(frameTime) {
 
 	gl.enableVertexAttribArray(1);
 	
-	//TODO draw sky.
-	//could use same shader as use to draw lit object, using texture maps, but more efficient to calculate in shader.
-	
 	mat4.rotateZ(mvMatrix,turnAng);
 	mat4.rotateX(mvMatrix,pitchAng);
-
 
 	var texBaseObj = guiParams.textureType == 'png'? textures : jpgTextures;
 
@@ -432,6 +488,28 @@ function drawWorldScene(frameTime) {
 	gl.activeTexture(gl.TEXTURE2);
 	gl.bindTexture(gl.TEXTURE_2D, texBaseObj.cross);
 	drawObjectFromBuffers(objToDraw, activeProg);
+
+	//draw sky
+	//use another camera. apply same rotation as playerCamera
+	mat4.set(skyboxCamera, mvMatrix);
+	mat4.rotateX(mvMatrix,-Math.PI/2);
+	mat4.rotateZ(mvMatrix,turnAng);
+	mat4.rotateX(mvMatrix,pitchAng);
+
+	var activeProg=shaderPrograms.sky;
+	gl.useProgram(activeProg);
+
+	gl.uniform4f(activeProg.uniforms.uLinearWeightsR, cWeightsR[0],cWeightsR[1],cWeightsR[2],0);
+	gl.uniform4f(activeProg.uniforms.uLinearWeightsG, cWeightsG[0],cWeightsG[1],cWeightsG[2],0);
+	gl.uniform4f(activeProg.uniforms.uLinearWeightsB, cWeightsB[0],cWeightsB[1],cWeightsB[2],0);
+	gl.uniform4f(activeProg.uniforms.uSquareWeightsR, cWeightsR[3],cWeightsR[4],cWeightsR[5],0);
+	gl.uniform4f(activeProg.uniforms.uSquareWeightsG, cWeightsG[3],cWeightsG[4],cWeightsG[5],0);
+	gl.uniform4f(activeProg.uniforms.uSquareWeightsB, cWeightsB[3],cWeightsB[4],cWeightsB[5],0);
+	gl.uniform4f(activeProg.uniforms.uCrossWeightsR, crossWeightsR[0],crossWeightsR[1],crossWeightsR[2],0);
+	gl.uniform4f(activeProg.uniforms.uCrossWeightsG, crossWeightsG[0],crossWeightsG[1],crossWeightsG[2],0);
+	gl.uniform4f(activeProg.uniforms.uCrossWeightsB, crossWeightsB[0],crossWeightsB[1],crossWeightsB[2],0);
+
+	drawObjectFromBuffers(skyboxBuffers, activeProg);
 }
 
 
